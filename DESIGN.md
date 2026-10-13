@@ -56,7 +56,7 @@ export default {
     getSubmission({ submissionId, ...a }) { return this._makeRequest({ path:`/submissions/${submissionId}`, ...a }); },
     listSubmissions(a) { return this._makeRequest({ path:"/submissions", ...a }); },
     createWebhook(a) { return this._makeRequest({ method:"POST", path:"/webhooks", ...a }); },
-    deleteWebhook({ uid, ...a }) { return this._makeRequest({ method:"DELETE", path:`/webhooks/${uid}`, ...a }); },
+    deleteWebhook({ webhookId, ...a }) { return this._makeRequest({ method:"DELETE", path:`/webhooks/${webhookId}`, ...a }); },
   },
 };
 ```
@@ -88,7 +88,7 @@ Each does `$.export("$summary", "...")` and returns the response.
 
 `hooks.activate()` → `docspring.createWebhook({ webhook: { url: this.http.endpoint,
 event_types: [...selected], include_submission_data: true, version: 3, name: "Pipedream",
-mode } })`, storing the `uid`; `hooks.deactivate()` → `deleteWebhook`. The `run(event)`
+mode } })`, storing the webhook `id`; `hooks.deactivate()` → `deleteWebhook`. The `run(event)`
 handler flattens the delivery (top-level `id` = event uuid, `resource_id`,
 `resource_type`, `data`) and `this.$emit(body, { id: body.id, summary, ts })`.
 
@@ -97,7 +97,7 @@ handler flattens the delivery (top-level `id` = event uuid, `resource_id`,
 - **Sync host + `?wait=true`** for Generate PDF / Combine PDFs; **standard host, no
   wait** for Create Data Request.
 - Signing-link `type` in the **query string**.
-- v3 webhook: top-level `id` is the event uuid; resource uid at `data.id`.
+- v3 webhook: top-level `id` is the event uuid; the resource's ID at `data.id`.
 - DocSpring errors: `{status:error, errors:[…]}` (axios throws on non-2xx).
 
 ## Testing & submission
