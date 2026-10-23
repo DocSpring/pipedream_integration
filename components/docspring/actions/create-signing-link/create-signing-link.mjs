@@ -10,14 +10,14 @@ export default {
     readOnlyHint: false,
   },
   description:
-    "Generate an authenticated signing link for a data request recipient. [See the documentation](https://docspring.com/docs).",
+    "Generate an authenticated signing link for a signature request recipient. [See the documentation](https://docspring.com/docs).",
   type: "action",
   props: {
     docspring,
-    dataRequestId: {
+    signatureRequestId: {
       propDefinition: [
         docspring,
-        "dataRequestId",
+        "signatureRequestId",
       ],
     },
     tokenType: {
@@ -35,7 +35,7 @@ export default {
   async run({ $ }) {
     const response = await this.docspring.createToken({
       $,
-      dataRequestId: this.dataRequestId,
+      signatureRequestId: this.signatureRequestId,
       params: { type: this.tokenType || "email" },
     });
     const token = response.token || response;
@@ -44,7 +44,7 @@ export default {
       signing_url: token.data_request_url,
       expires_at: token.expires_at,
     };
-    $.export("$summary", `Created signing link for \`${this.dataRequestId}\``);
+    $.export("$summary", `Created signing link for \`${this.signatureRequestId}\``);
     return result;
   },
 };

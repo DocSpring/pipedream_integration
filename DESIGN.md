@@ -17,7 +17,7 @@ package.json                 # @pipedream/docspring, dep @pipedream/platform
 actions/
   generate-pdf/generate-pdf.mjs
   combine-pdfs/combine-pdfs.mjs
-  create-data-request/create-data-request.mjs
+  create-signature-request/create-signature-request.mjs
   create-signing-link/create-signing-link.mjs
   find-template/find-template.mjs
   find-submission/find-submission.mjs
@@ -34,7 +34,7 @@ export default {
   app: "docspring",
   propDefinitions: {
     templateId: { type: "string", label: "Template", async options() { /* listTemplates */ } },
-    submissionId: { ... }, dataRequestId: { ... }, /* etc. */
+    submissionId: { ... }, signatureRequestId: { ... }, /* etc. */
   },
   methods: {
     _region() { return this.$auth.region || "us"; },
@@ -51,7 +51,7 @@ export default {
     generatePdf({ templateId, ...a }) { return this._makeRequest({ method:"POST", path:`/templates/${templateId}/submissions`, params:{wait:true}, sync:true, ...a }); },
     combinePdfs(a) { return this._makeRequest({ method:"POST", path:"/combined_submissions", params:{wait:true}, sync:true, ...a }); },
     createSubmission({ templateId, ...a }) { return this._makeRequest({ method:"POST", path:`/templates/${templateId}/submissions`, ...a }); },
-    createToken({ dataRequestId, ...a }) { return this._makeRequest({ method:"POST", path:`/data_requests/${dataRequestId}/tokens`, ...a }); },
+    createToken({ signatureRequestId, ...a }) { return this._makeRequest({ method:"POST", path:`/data_requests/${signatureRequestId}/tokens`, ...a }); },
     listTemplates(a) { return this._makeRequest({ path:"/templates", ...a }); },
     getSubmission({ submissionId, ...a }) { return this._makeRequest({ path:`/submissions/${submissionId}`, ...a }); },
     listSubmissions(a) { return this._makeRequest({ path:"/submissions", ...a }); },
@@ -74,7 +74,7 @@ the app in their DB via the PR) — pending research.
 - **Generate PDF** — `docspring.generatePdf` (sync host + `?wait=true`). `templateId` +
   a JSON `data` object + test/password/expires/version → `body.submission`.
 - **Combine PDFs** — `docspring.combinePdfs` (sync host + wait). `sourcePdfs` array.
-- **Create Data Request** — `docspring.createSubmission` (standard host, no wait) with
+- **Create Signature Request** — `docspring.createSubmission` (standard host, no wait) with
   `data_requests`, then mint a 30-day `email` token per recipient → submission +
   `signing_url`s.
 - **Create Signing Link** — `docspring.createToken` with `type` in the query string.
@@ -95,9 +95,16 @@ handler flattens the delivery (top-level `id` = event uuid, `resource_id`,
 ## Gotchas carried over
 
 - **Sync host + `?wait=true`** for Generate PDF / Combine PDFs; **standard host, no
-  wait** for Create Data Request.
+  wait** for Create Signature Request.
 - Signing-link `type` in the **query string**.
 - v3 webhook: top-level `id` is the event uuid; the resource's ID at `data.id`.
+- Naming: DocSpring calls data requests **signature requests**. These components
+  aren't published yet, so their own keys and props say so too
+  (`docspring-create-signature-request`, `signatureRequestId`,
+  `first_signature_request_id`). API v1's paths and fields (`/data_requests`,
+  `data_requests`, `data_request_url`) and the webhook event values
+  (`submission_data_request.*`, labelled "Signature Request ...") keep their names
+  until the API v2 port.
 - DocSpring errors: `{status:error, errors:[…]}` (axios throws on non-2xx).
 
 ## Testing & submission

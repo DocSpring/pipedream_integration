@@ -1,8 +1,8 @@
 import docspring from "../../docspring.app.mjs";
 
 export default {
-  key: "docspring-create-data-request",
-  name: "Create Data Request",
+  key: "docspring-create-signature-request",
+  name: "Create Signature Request",
   version: "0.0.1",
   annotations: {
     destructiveHint: false,
@@ -20,7 +20,7 @@ export default {
         "templateId",
       ],
     },
-    dataRequests: {
+    signatureRequests: {
       type: "string[]",
       label: "Recipients",
       description:
@@ -40,13 +40,13 @@ export default {
     },
   },
   async run({ $ }) {
-    const recipients = (this.dataRequests || [])
+    const recipients = (this.signatureRequests || [])
       .map((r) => (typeof r === "string" ? JSON.parse(r) : r))
       .filter((r) => r && r.email);
     if (!recipients.length) {
       throw new Error("At least one recipient with an email address is required");
     }
-    const dataRequests = recipients.map((r) => {
+    const signatureRequests = recipients.map((r) => {
       const entry = { email: r.email, auth_type: r.auth_type || "email_link" };
       if (r.name) entry.name = r.name;
       if (r.fields) {
@@ -59,7 +59,7 @@ export default {
 
     const body = {
       data: this.data || {},
-      data_requests: dataRequests,
+      data_requests: signatureRequests,
       test: this.test ?? false,
     };
     const response = await this.docspring.createSubmission({ $, templateId: this.templateId, data: body });
@@ -72,7 +72,7 @@ export default {
       let signingUrl = null;
       if (dr.id && dr.state !== "completed") {
         try {
-          const tok = await this.docspring.createToken({ $, dataRequestId: dr.id, params: { type: "email" } });
+          const tok = await this.docspring.createToken({ $, signatureRequestId: dr.id, params: { type: "email" } });
           signingUrl = (tok.token && tok.token.data_request_url) || null;
         } catch (_e) {
           signingUrl = null;
@@ -84,10 +84,10 @@ export default {
     const result = {
       ...submission,
       data_requests: enriched,
-      first_data_request_id: first.id || null,
+      first_signature_request_id: first.id || null,
       first_signing_url: first.signing_url || null,
     };
-    $.export("$summary", `Created data request submission \`${submission.id}\` for ${enriched.length} recipient(s)`);
+    $.export("$summary", `Created signature request submission \`${submission.id}\` for ${enriched.length} recipient(s)`);
     return result;
   },
 };

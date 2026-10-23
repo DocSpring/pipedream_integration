@@ -38,29 +38,68 @@ export default {
       label: "Submission ID",
       description: "A submission ID (`sub_...`).",
     },
-    dataRequestId: {
+    signatureRequestId: {
       type: "string",
-      label: "Data Request ID",
-      description: "A data request ID (`drq_...`).",
+      label: "Signature Request ID",
+      description: "A signature request ID (`srq_...`).",
     },
     eventTypes: {
       type: "string[]",
       label: "Events",
       description: "The DocSpring events to subscribe to.",
       options: [
-        "submission.processed",
-        "submission.failed",
-        "submission.created",
-        "submission.expired",
-        "submission_data_request.completed",
-        "submission_data_request.viewed",
-        "combined_submission.processed",
-        "combined_submission.failed",
-        "submission_batch.processed",
-        "submission_batch.failed",
-        "template.created",
-        "template.updated",
-        "template.deleted",
+        {
+          label: "Submission Processed",
+          value: "submission.processed",
+        },
+        {
+          label: "Submission Failed",
+          value: "submission.failed",
+        },
+        {
+          label: "Submission Created",
+          value: "submission.created",
+        },
+        {
+          label: "Submission Expired",
+          value: "submission.expired",
+        },
+        {
+          label: "Signature Request Completed",
+          value: "submission_data_request.completed",
+        },
+        {
+          label: "Signature Request Viewed",
+          value: "submission_data_request.viewed",
+        },
+        {
+          label: "Combined Submission Processed",
+          value: "combined_submission.processed",
+        },
+        {
+          label: "Combined Submission Failed",
+          value: "combined_submission.failed",
+        },
+        {
+          label: "Submission Batch Processed",
+          value: "submission_batch.processed",
+        },
+        {
+          label: "Submission Batch Failed",
+          value: "submission_batch.failed",
+        },
+        {
+          label: "Template Created",
+          value: "template.created",
+        },
+        {
+          label: "Template Updated",
+          value: "template.updated",
+        },
+        {
+          label: "Template Deleted",
+          value: "template.deleted",
+        },
       ],
     },
   },
@@ -127,10 +166,10 @@ export default {
         ...opts,
       });
     },
-    createToken({ dataRequestId, ...opts }) {
+    createToken({ signatureRequestId, ...opts }) {
       return this._makeRequest({
         method: "POST",
-        path: `/data_requests/${dataRequestId}/tokens`,
+        path: `/data_requests/${signatureRequestId}/tokens`,
         ...opts,
       });
     },
