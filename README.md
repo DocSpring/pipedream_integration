@@ -6,18 +6,27 @@ The DocSpring integration for [Pipedream](https://pipedream.com). Sibling to the
 [n8n](https://github.com/DocSpring/n8n_integration), and
 [Node-RED](https://github.com/DocSpring/node-red_integration) integrations.
 
-`components/docspring/` mirrors the layout used by the
-[`PipedreamHQ/pipedream`](https://github.com/PipedreamHQ/pipedream) monorepo
-(`components/<app>/`): the app file, six actions, and a webhook source. See
-[`DESIGN.md`](./DESIGN.md) for the port spec.
+`components/docspring/` mirrors the layout of the
+[`PipedreamHQ/pipedream`](https://github.com/PipedreamHQ/pipedream) monorepo (`components/<app>/`): the app file,
+27 actions and a webhook source, on DocSpring's API v2. See [`DESIGN.md`](./DESIGN.md) for how they work and
+[`CHANGELOG.md`](./CHANGELOG.md) for what changed.
 
 ## Status
 
-Built and validated against the live DocSpring API (all six actions + the template
-dropdown + the source flatten). **Submission is a PR to `PipedreamHQ/pipedream`** —
-which also requires Pipedream to register the new `docspring` app with a
-custom-fields auth (`token_id` + `token_secret`), since `this.$auth` only resolves
-for a registered app.
+Not published. The components go to Pipedream as a PR to `PipedreamHQ/pipedream`
+([#21947](https://github.com/PipedreamHQ/pipedream/pull/21947)), which waits for Pipedream to register the
+`docspring` app with custom-fields auth (`token_id`, `token_secret`, `region`, `custom_host`;
+[#21948](https://github.com/PipedreamHQ/pipedream/issues/21948)): `this.$auth` only works for a registered app.
+
+## Tests
+
+```sh
+(cd components/docspring && npm install)
+npm test
+```
+
+The tests (Node 22.3 or later) mock `@pipedream/platform`'s `axios` and block `fetch`, so they make no network
+requests. `package.json` and `test/` at the root stay here: only `components/docspring/` goes upstream.
 
 ## License
 

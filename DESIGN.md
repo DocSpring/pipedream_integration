@@ -1,115 +1,173 @@
-# DocSpring Pipedream Components — Design Notes
+# DocSpring Pipedream Components: Design Notes
 
-Port spec for the DocSpring **Pipedream** integration. Source of truth for behavior
-is the Zapier integration (`DocSpring/zapier_integration`), the Make app, the n8n node
-(`DocSpring/n8n_integration`), and the Node-RED nodes; this doc records what carries
-over and what changes because Pipedream components are **Node.js (ESM `.mjs`)** using
-`@pipedream/platform` (axios), submitted to the `PipedreamHQ/pipedream` monorepo.
+How the DocSpring components for **Pipedream** work, and why. They're Node.js ES modules (`.mjs`) that use
+`@pipedream/platform`'s `axios`, written to go upstream into the `PipedreamHQ/pipedream` monorepo
+(`components/docspring/`). The other DocSpring integrations (Zapier, Make, n8n, Node-RED, Bubble) follow the same
+operation set and rules (Shortcut sc-5981), so a change to one usually belongs in all of them.
 
-Modeled on the existing PDF-generation apps in the monorepo (`craftmypdf`,
-`apitemplate_io`, `documint`) — all API-key apps with the same shape.
+All of them call **DocSpring API v2** (`/api/v2`) and create **version 4** webhooks. Nothing calls API v1.
 
 ## Structure (`components/docspring/`)
 
 ```
-docspring.app.mjs            # the app: auth (this.$auth.*), propDefinitions, methods
-package.json                 # @pipedream/docspring, dep @pipedream/platform
-actions/
-  generate-pdf/generate-pdf.mjs
-  combine-pdfs/combine-pdfs.mjs
-  create-signature-request/create-signature-request.mjs
-  create-signing-link/create-signing-link.mjs
-  find-template/find-template.mjs
-  find-submission/find-submission.mjs
-sources/
-  new-event/new-event.mjs    # webhook source for DocSpring events
+docspring.app.mjs          # auth, hosts, User-Agent, errors, paging, pickers, one method per API operation
+common/constants.mjs       # version, hosts, limits, failure states, dropdown options, the 22 webhook events
+common/utils.mjs           # pure helpers: input parsing, request cleaning, error messages, event output
+actions/<name>/<name>.mjs  # 27 actions, key docspring-<name>
+sources/common/base-webhook.mjs
+sources/new-event/         # New Event (Instant) and its sample event
+package.json               # @pipedream/docspring; its version is the User-Agent's
 ```
 
-## App file — `docspring.app.mjs`
+Tests live outside `components/` (`test/`, `package.json` at the root), so they don't go upstream.
 
-```js
-import { axios } from "@pipedream/platform";
-export default {
-  type: "app",
-  app: "docspring",
-  propDefinitions: {
-    templateId: { type: "string", label: "Template", async options() { /* listTemplates */ } },
-    submissionId: { ... }, signatureRequestId: { ... }, /* etc. */
-  },
-  methods: {
-    _region() { return this.$auth.region || "us"; },
-    _baseUrl(sync) { /* region → api[.eu].docspring.com or sync host or custom_host */ },
-    _headers() {
-      return {
-        Authorization: "Basic " + Buffer.from(`${this.$auth.token_id}:${this.$auth.token_secret}`).toString("base64"),
-        Accept: "application/json",
-      };
-    },
-    async _makeRequest({ $ = this, path, sync, ...opts }) {
-      return axios($, { url: `${this._baseUrl(sync)}/api/v1${path}`, headers: this._headers(), ...opts });
-    },
-    generatePdf({ templateId, ...a }) { return this._makeRequest({ method:"POST", path:`/templates/${templateId}/submissions`, params:{wait:true}, sync:true, ...a }); },
-    combinePdfs(a) { return this._makeRequest({ method:"POST", path:"/combined_submissions", params:{wait:true}, sync:true, ...a }); },
-    createSubmission({ templateId, ...a }) { return this._makeRequest({ method:"POST", path:`/templates/${templateId}/submissions`, ...a }); },
-    createToken({ signatureRequestId, ...a }) { return this._makeRequest({ method:"POST", path:`/data_requests/${signatureRequestId}/tokens`, ...a }); },
-    listTemplates(a) { return this._makeRequest({ path:"/templates", ...a }); },
-    getSubmission({ submissionId, ...a }) { return this._makeRequest({ path:`/submissions/${submissionId}`, ...a }); },
-    listSubmissions(a) { return this._makeRequest({ path:"/submissions", ...a }); },
-    createWebhook(a) { return this._makeRequest({ method:"POST", path:"/webhooks", ...a }); },
-    deleteWebhook({ webhookId, ...a }) { return this._makeRequest({ method:"DELETE", path:`/webhooks/${webhookId}`, ...a }); },
-  },
-};
-```
+## Auth and hosts
 
-## Auth (this.$auth) — the key open item
+The app is a custom-fields app: `this.$auth.token_id` and `token_secret` (HTTP Basic: the token ID is the username),
+`region` (`us`, `eu` or `self_hosted`) and `custom_host`. Pipedream has to register the app with these fields before
+an account can connect (PipedreamHQ/pipedream#21948). The registration's connection test should be
+`GET https://api.docspring.com/api/v2/authentication`, which returns `{"authenticated": true}`
+(`testAuthentication()` makes the same request).
 
-DocSpring uses **Basic auth** with a **token id + secret** pair, plus a **region**
-(and self-hosted **custom_host**). In Pipedream that's a **custom-fields** app whose
-`$auth` keys are `token_id`, `token_secret`, `region`, `custom_host`. Confirm how a
-NEW app's auth is registered (app-file declaration vs Pipedream team pre-registering
-the app in their DB via the PR) — pending research.
+| Region      | Standard host          | Sync host (waits for PDFs) |
+| ----------- | ---------------------- | -------------------------- |
+| US          | `api.docspring.com`    | `sync.api.docspring.com`   |
+| EU          | `api-eu.docspring.com` | `sync.api-eu.docspring.com` |
+| Self-hosted | the custom host        | the custom host            |
 
-## Actions (each `type: "action"`, reuse app propDefinitions, call app methods)
+A custom host without a scheme gets `https://`. The operations that make a file use the sync host with
+`?wait=true`, or `wait=false` when **Wait for the PDF** is off: Generate PDF, Generate PDFs in a Batch, Combine PDFs,
+Generate Submission Files, Create Template and Replace Template PDF. Everything else, including Create Signature
+Request, uses the standard host.
 
-- **Generate PDF** — `docspring.generatePdf` (sync host + `?wait=true`). `templateId` +
-  a JSON `data` object + test/password/expires/version → `body.submission`.
-- **Combine PDFs** — `docspring.combinePdfs` (sync host + wait). `sourcePdfs` array.
-- **Create Signature Request** — `docspring.createSubmission` (standard host, no wait) with
-  `data_requests`, then mint a 30-day `email` token per recipient → submission +
-  `signing_url`s.
-- **Create Signing Link** — `docspring.createToken` with `type` in the query string.
-- **Find Template** — `docspring.listTemplates` (page pagination, per_page ≤ 50).
-- **Find Submission** — `docspring.getSubmission` (single) / `listSubmissions`
-  (cursor pagination).
+Every request sends `User-Agent: docspring-pipedream/<version>`, from `PACKAGE_VERSION` in `common/constants.mjs`. Keep
+it equal to `package.json`'s version (a test checks): Pipedream bumps the package with every component change, so it
+names the release, and DocSpring counts users by it in `api_logs.user_agent`.
 
-Each does `$.export("$summary", "...")` and returns the response.
+## Requests
 
-## Source — `sources/new-event` (webhook)
+- JSON bodies, flat (no `{webhook: ...}` wrappers). `version` and `wait` are query parameters; a batch's template
+  version is `template_version` in its body.
+- Inputs left blank aren't sent (`utils.compact` drops `undefined`, `null`, `""` and `[]`). `test` is sent only when
+  it's true: v2 rejects `test: false` from a test token, and a test token always makes test PDFs anyway.
+- Strings that Pipedream hands over for booleans and integers are converted, and ones that can't be are a
+  `ConfigurationError`. Object inputs take an object or a JSON string; list inputs take a list, a JSON array, or items
+  that are JSON objects or arrays (`utils.parseObjectArray`).
+- `data` is passed through as the user mapped it: v2 checks it against the template (dates are `YYYY-MM-DD`). It's a
+  key-value object rather than fields built from the template's schema, which works the same for agents and for data
+  mapped whole from an earlier step.
+- Lists use cursors: Find Templates, Find Submissions and List Folders follow `next_cursor` (up to 100 a request) until
+  **Max Results** (default 50), and return an array. The template and folder pickers page with `prevContext` and stop
+  after 1,000 options. The folder picker can offer `root` (sent as `null`) for Copy Template and Move Template.
 
-`hooks.activate()` → `docspring.createWebhook({ webhook: { url: this.http.endpoint,
-event_types: [...selected], include_submission_data: true, version: 3, name: "Pipedream",
-mode } })`, storing the webhook `id`; `hooks.deactivate()` → `deleteWebhook`. The `run(event)`
-handler flattens the delivery (top-level `id` = event uuid, `resource_id`,
-`resource_type`, `data`) and `this.$emit(body, { id: body.id, summary, ts })`.
+## Responses and errors
 
-## Gotchas carried over
+- Actions return the v2 resource as the API returns it. The only additions are Create Signature Request's
+  `signature_requests[].signing_url`, `first_signature_request_id` and `first_signing_url`.
+- `_makeRequest` turns an HTTP error into
+  `DocSpring API error <status> <code>: <message>`, then one line per detail (`<pointer or parameter>: <message>`), the
+  record (`Submission: sub_...`, `Combined PDF: ...`, `Submission batch: ...`, `Template: ...`) and
+  `Request ID: req_...`. The error keeps `status`, `code` and `response: {status, data}`.
+- A 504 `polling_timeout` says which action gets the record later, and which trigger event to use
+  ("The PDF wasn't ready in time. Get it later with Get Submission (sub_...), or use the submission.processed
+  trigger.").
+- A 404 from a self-hosted server whose body isn't a v2 error means the server has no API v2: "This DocSpring server
+  doesn't have API v2 yet. Upgrade it to the latest release, or use version 0.0.1 of this integration." A v2
+  `not_found` is reported as it is.
+- A 201 whose record failed throws, naming the state, the error message and the ID: a submission in `error`,
+  `syntax_error`, `image_download_failed` or `image_processing_failed`; a combined PDF or batch in `error`; a template
+  whose `document.state` is `password_required`, `malformed_pdf`, `unknown_error` or `download_failed`; a generated
+  file whose `state` is `error`.
 
-- **Sync host + `?wait=true`** for Generate PDF / Combine PDFs; **standard host, no
-  wait** for Create Signature Request.
-- Signing-link `type` in the **query string**.
-- v3 webhook: top-level `id` is the event uuid; the resource's ID at `data.id`.
-- Naming: DocSpring calls data requests **signature requests**. These components
-  aren't published yet, so their own keys and props say so too
-  (`docspring-create-signature-request`, `signatureRequestId`,
-  `first_signature_request_id`). API v1's paths and fields (`/data_requests`,
-  `data_requests`, `data_request_url`) and the webhook event values
-  (`submission_data_request.*`, labelled "Signature Request ...") keep their names
-  until the API v2 port.
-- DocSpring errors: `{status:error, errors:[…]}` (axios throws on non-2xx).
+## Actions
 
-## Testing & submission
+| Action | v2 operation | Notes |
+| --- | --- | --- |
+| Generate PDF | `POST /templates/{id}/submissions` (sync) | version, data, test, metadata, output formats, password, expires in, field overrides, editable, wait |
+| Generate PDFs in a Batch | `POST /submissions/batches` (sync) | submissions as JSON; batch-level template, `template_version`, test, metadata, output formats |
+| Get Submission Batch | `GET /submissions/batches/{id}` | include data |
+| Check Data | `POST /templates/{id}/submissions/validate` | data, test, optional signature requests as JSON; returns `valid` without throwing |
+| Get Submission | `GET /submissions/{id}` | |
+| Find Submissions | `GET /submissions` or `GET /templates/{id}/submissions` | live / test / any, created after / before, include data |
+| Generate Submission Files | `POST /submissions/{id}/generate_files` (sync) | `png` |
+| Expire Submission | `DELETE /submissions/{id}` | destructive |
+| Combine PDFs | `POST /combined_pdfs` (sync) | sources as JSON; `template_version` and `processed` only on `template` sources |
+| Get Combined PDF | `GET /combined_pdfs/{id}` | |
+| Create Signature Request | `POST /templates/{id}/submissions` (standard host) | see below |
+| Create Signing Link | `POST /signature_requests/{id}/tokens` | `type` in the body: `email` (7 days, the default) or `api` (24 hours); returns the token |
+| Get Signature Request | `GET /signature_requests/{id}` | |
+| Find Templates | `GET /templates` | name, folder |
+| Get Template | `GET /templates/{id}` | |
+| Create Template | `POST /templates` (sync) | PDF (file or URL, AI field detection) or HTML; folder |
+| Replace Template PDF | `PUT /templates/{id}/document` (sync) | reimport fields; destructive (replaces the draft's PDF) |
+| Copy Template | `POST /templates/{id}/copy` | name, folder (`root` or left out: the template's own folder), published version |
+| Move Template | `POST /templates/{id}/move` | folder or `root` |
+| Publish Template Version | `POST /templates/{id}/publish_version` | `patch`, `minor` or `major`; description |
+| List Template Fields | `GET /templates/{id}/fields` | version (draft by default) |
+| Add Template Fields | `POST /templates/{id}/fields` | fields as JSON |
+| Update Template Fields | `PUT /templates/{id}/fields` | fields as JSON, each with its `id` |
+| Remove Template Fields | `POST /templates/{id}/fields/remove` | picks from the template's fields; destructive |
+| Get Template Page Images | `GET /templates/{id}/page_images` | version (draft by default) |
+| List Folders | `GET /folders` | parent folder |
+| Create Folder | `POST /folders` | name, parent folder |
 
-- Test the request logic against the DocSpring test account (framework-agnostic).
-- `pd` CLI (`pd dev`) for live component iteration once the app auth exists.
-- Submit a PR to `PipedreamHQ/pipedream` adding `components/docspring/`; their team
-  reviews/merges and registers the app → it appears in the Pipedream registry.
+There's no **Make an API Call** action: Pipedream already gives every app a "Use any DocSpring API" code step with the
+connected account's credentials on `this.docspring.$auth`
+([docs](https://pipedream.com/docs/workflows/building-workflows/code/nodejs/auth)), and Pipedream Connect's API proxy
+sends any request with them.
+
+### Create Signature Request
+
+**Number of Signers** (with `reloadProps`) adds a group of inputs for each signer in `additionalProps()`: name,
+email, fields, role, authentication (`email_link` by default, `password`, `oauth` with a provider, `phone_number`,
+`ldap`, `saml`), prefilled values editable and ignore unknown fields. **Fields** is a multi-select of the template's
+field names (from `GET /templates/{id}/fields?version=`, without static and `combined` fields or `@@` details);
+when the template can't be read at setup time (its ID comes from an earlier step), the names are typed in. Every
+signer needs fields, `oauth` needs a provider, and either every signer has a role or none does.
+
+After creating the submission, the action makes a signing link of the chosen type (`email`, `api` or `none`) for
+each pending signature request. If one fails, the error names the submission so the step isn't rerun to make a
+second one.
+
+## Source: New Event (Instant)
+
+- `activate()` creates the webhook with `POST /api/v2/webhooks`: `url`, `name: "Pipedream"`, `event_types`, and
+  optionally `template_ids`, `mode` and `include_submission_data` (on by default). Webhooks created with API v2 send
+  version 4 events. Only the webhook's `id` is stored (`hookId` in `$.service.db`).
+- `deactivate()` deletes it; a 404 means it's already gone. Any other error fails deactivation and keeps the ID.
+- `run()` emits the event as delivered (`id` = the event ID, `event_type`, `created_at`, `data` = the v2 resource) plus
+  `resource_type` (the event type before the first dot) and `resource_id` (`data.id`). The resource stays under
+  `data`, so its `id` and `created_at` don't collide with the event's. The emit's `id` is the event ID (it stays the
+  same on retries, so `dedupe: "unique"` drops repeats) and `ts` is `created_at`.
+- Events: every v4 event except `webhook.*`: `submission.{created,processed,failed,declined,updated,expired}`,
+  `signature_request.{viewed,completed,declined,updated}`, `combined_pdf.{processed,failed,expired}`,
+  `submission_batch.{processed,failed}`, `template.{created,updated,deleted}`, `custom_file.created` and
+  `folder.{created,updated,deleted}`. With templates set, DocSpring only accepts submission, signature request and
+  template events.
+- Deliveries aren't checked against `X-DocSpring-Signature`: that would mean storing the webhook's secret, and the
+  integrations store only the webhook's ID.
+
+## Pipedream conventions these follow
+
+From the monorepo's `.github/pipedream-component-guidelines.md` and its CodeRabbit config:
+
+- Actions have `ai: "optimized"` and `annotations` (`readOnlyHint` for get, find, list and check; `destructiveHint`
+  for Expire Submission, Remove Template Fields and Replace Template PDF). The source has no annotations.
+- Every prop description has an example, and ID props name the action that finds them in **bold**. Descriptions end
+  with a link to the operation in the [API v2 reference](https://docspring.com/docs/api/) and don't mention HTTP
+  paths.
+- Props used by several components are `propDefinitions` in the app file. Generic helpers are in `common/utils.mjs`,
+  constants in `common/constants.mjs`.
+- File inputs (`document`) have `format: "file-ref"` and a `syncDir` prop (`type: "dir"`, `accessMode: "read"`), and
+  are read with `getFileStreamAndMetadata`. A public `https://` URL goes to DocSpring as `document_url` (up to 100 MB)
+  instead of being downloaded; a file is sent as `document_base64` (up to 7 MB).
+- New versions: bump each changed component's `version` and `package.json` (and `PACKAGE_VERSION`).
+
+## Testing
+
+`npm test` at the repo root (Node 22.3 or later, after `npm install` in `components/docspring`) runs `node --test`
+with `@pipedream/platform`'s `axios` mocked and `fetch` blocked. Nothing reaches the network. Upstream's lint is
+`npx eslint components/docspring` in the monorepo; `node --check` catches syntax errors here.
+
+Before release, try each action against a DocSpring test token with `pd dev` (once Pipedream has registered the
+app), and check that the source receives an event and deletes its webhook when removed.
