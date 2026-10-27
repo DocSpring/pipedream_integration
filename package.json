@@ -1,0 +1,11 @@
+{
+  "name": "docspring-pipedream-integration",
+  "private": true,
+  "description": "Tests for the DocSpring Pipedream components (components/docspring), which go upstream to PipedreamHQ/pipedream without this file.",
+  "scripts": {
+    "test": "node --test --experimental-test-module-mocks 'test/**/*.test.mjs'"
+  },
+  "engines": {
+    "node": ">=22.3"
+  }
+}
