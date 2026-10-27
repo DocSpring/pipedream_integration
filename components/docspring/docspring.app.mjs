@@ -273,9 +273,10 @@ export default {
     async _makeRequest({
       $ = this, path, sync = false, headers, ...args
     }) {
+      const baseUrl = this._baseUrl(sync);
       try {
         return await axios($, {
-          url: `${this._baseUrl(sync)}${constants.API_PATH}${path}`,
+          url: `${baseUrl}${constants.API_PATH}${path}`,
           headers: {
             ...this._headers(),
             ...headers,
@@ -284,7 +285,13 @@ export default {
         });
       } catch (error) {
         if (!error.response) {
-          throw error;
+          // A network error (no response) carries the request's config and its Authorization
+          // header, so throw a new error with only the host, the cause and its code.
+          const networkError = new Error(`Couldn't reach DocSpring at ${baseUrl}: ${error.message}`);
+          if (error.code) {
+            networkError.code = error.code;
+          }
+          throw networkError;
         }
         const {
           status, statusText, data,

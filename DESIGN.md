@@ -72,6 +72,9 @@ names the release, and DocSpring counts users by it in `api_logs.user_agent`.
   `DocSpring API error <status> <code>: <message>`, then one line per detail (`<pointer or parameter>: <message>`), the
   record (`Submission: sub_...`, `Combined PDF: ...`, `Submission batch: ...`, `Template: ...`) and
   `Request ID: req_...`. The error keeps `status`, `code` and `response: {status, data}`.
+- A network error (no response) becomes a new `Error`: "Couldn't reach DocSpring at <base URL>: <cause>", with the
+  cause's `code` (e.g. `ECONNREFUSED`). The AxiosError isn't rethrown or attached as `cause`: its `config` and
+  `request` carry the Authorization header.
 - A 504 `polling_timeout` says which action gets the record later, and which trigger event to use
   ("The PDF wasn't ready in time. Get it later with Get Submission (sub_...), or use the submission.processed
   trigger.").

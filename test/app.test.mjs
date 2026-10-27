@@ -354,12 +354,77 @@ describe("errors", () => {
     });
   });
 
-  it("rethrows errors without a response (network failures) unchanged", async () => {
-    const networkError = new Error("socket hang up");
+  it("turns a network error into one that names the host and never carries the token", async () => {
+    const token = Buffer.from("api_test123:secret456").toString("base64");
+    // Shaped like the AxiosError @pipedream/platform rethrows when there's no response.
+    const networkError = new Error("connect ECONNREFUSED 10.0.0.1:443");
+    networkError.name = "AxiosError";
+    networkError.code = "ECONNREFUSED";
+    networkError.config = {
+      url: "https://sync.api.docspring.com/api/v2/combined_pdfs",
+      headers: {
+        Authorization: `Basic ${token}`,
+      },
+      auth: {
+        username: "api_test123",
+        password: "secret456",
+      },
+    };
+    networkError.request = {
+      _header: `POST /api/v2/combined_pdfs HTTP/1.1\r\nAuthorization: Basic ${token}\r\n`,
+    };
     respondInOrder(networkError);
-    await assert.rejects(makeApp().getSubmission({
+    let thrown;
+    try {
+      await makeApp().createCombinedPdf({
+        data: {},
+      });
+    } catch (error) {
+      thrown = error;
+    }
+    assert.ok(thrown, "the request should fail");
+    assert.equal(thrown.message, "Couldn't reach DocSpring at https://sync.api.docspring.com: connect ECONNREFUSED 10.0.0.1:443");
+    assert.equal(thrown.code, "ECONNREFUSED");
+    assert.equal(thrown.config, undefined);
+    assert.equal(thrown.request, undefined);
+    assert.equal(thrown.cause, undefined);
+    const ownProperties = Object.fromEntries(Object.getOwnPropertyNames(thrown).map((key) => [
+      key,
+      thrown[key],
+    ]));
+    const everything = [
+      JSON.stringify(ownProperties),
+      thrown.message,
+      thrown.stack,
+    ].join("\n");
+    for (const secret of [
+      "api_test123",
+      "secret456",
+      token,
+    ]) {
+      assert.ok(!everything.includes(secret), `the error exposes ${secret}`);
+    }
+  });
+
+  it("names a self-hosted host in a network error, and keeps a missing host's own message", async () => {
+    const networkError = new Error("getaddrinfo ENOTFOUND docspring.example.com");
+    networkError.code = "ENOTFOUND";
+    respondInOrder(networkError);
+    await assert.rejects(makeApp({
+      region: "self_hosted",
+      custom_host: "docspring.example.com",
+    }).getSubmission({
       submissionId: "sub_1",
-    }), networkError);
+    }), {
+      message: "Couldn't reach DocSpring at https://docspring.example.com: getaddrinfo ENOTFOUND docspring.example.com",
+      code: "ENOTFOUND",
+    });
+    await assert.rejects(makeApp({
+      region: "self_hosted",
+      custom_host: " ",
+    }).getSubmission({
+      submissionId: "sub_1",
+    }), /A Self-Hosted Host is required/);
   });
 });
 
