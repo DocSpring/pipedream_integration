@@ -15,6 +15,8 @@ published; the list below is what changed from it.
   `signature_requests`, and errors list DocSpring's message, each problem and the request ID. Create Signing Link
   returns the token (`signature_request_url` is the link). Email links open the signing form for 7 days, API links for
   24 hours.
+- **IDs only name one record:** each ID that goes into a request's path is encoded, and a blank ID, `.` or `..`
+  fails before any request is made.
 - **New Event (Instant)** emits the event as DocSpring sends it (`id`, `event_type`, `created_at`, `data`) plus
   `resource_type` and `resource_id`, for 22 events, now including submission declined and updated, signature request
   declined and updated, combined PDF expired, custom file created and folder events. It can be limited to some
