@@ -97,7 +97,7 @@ export default {
       type: "boolean",
       label: "Wait for the PDF",
       description: "`true` (the default) waits until the PDF is ready and returns it in its final state."
-        + " `false` returns at once with a pending record: get it later with the matching **Get** action or the **New Event (Instant)** trigger. e.g. `true`.",
+        + " `false` returns at once with a pending submission: get it later with **Get Submission** or the **New Event (Instant)** trigger. e.g. `true`.",
       optional: true,
       default: true,
     },

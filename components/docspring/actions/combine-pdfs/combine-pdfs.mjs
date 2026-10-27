@@ -52,6 +52,8 @@ export default {
         docspring,
         "wait",
       ],
+      description: "`true` (the default) waits until the combined PDF is ready. `false` returns at once with a pending combined PDF:"
+        + " get it later with **Get Combined PDF** or the **New Event (Instant)** trigger. e.g. `true`.",
     },
   },
   async run({ $ }) {
