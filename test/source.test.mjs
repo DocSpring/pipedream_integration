@@ -2,6 +2,7 @@ import {
   beforeEach, describe, it,
 } from "node:test";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import {
   constants, httpError, loadComponent, makeApp, requests, reset, respondInOrder, utils,
 } from "./support.mjs";
@@ -11,6 +12,7 @@ const source = await loadComponent("sources/new-event/new-event.mjs");
 const makeSource = (props = {}) => {
   const store = {};
   const emitted = [];
+  const responses = [];
   const context = {
     ...source.methods,
     docspring: makeApp(),
@@ -22,6 +24,9 @@ const makeSource = (props = {}) => {
     },
     http: {
       endpoint: "https://abc.m.pipedream.net",
+      respond: (response) => {
+        responses.push(response);
+      },
     },
     $emit: (event, meta) => emitted.push({
       event,
@@ -33,7 +38,46 @@ const makeSource = (props = {}) => {
     context,
     store,
     emitted,
+    responses,
   };
+};
+
+const SECRET = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+// A delivery's body as DocSpring might send it: key order, spacing and a \u escape that
+// JSON.stringify wouldn't produce, and a non-ASCII character, so only the raw bytes give the
+// right HMAC.
+const RAW_BODY = '{"event_type":"submission.processed",  "id":"6f1c2e8a-3b4d-4c5e-9f60-7a8b9c0d1e2f",'
+  + '"created_at":"2026-06-27T03:16:07Z","data":{"id":"sub_1","data":{"name":"Zo\\u00eb Ng","city":"Zoë"}}}';
+
+const sign = (body, secret = SECRET, timestamp = "1782532874") => crypto
+  .createHmac("sha256", secret)
+  .update(`${timestamp}.${body}`, "utf8")
+  .digest("hex");
+
+const delivery = ({
+  rawBody = RAW_BODY, signature, headerName = "x-docspring-signature",
+} = {}) => ({
+  method: "POST",
+  path: "/",
+  query: {},
+  headers: signature === null
+    ? {}
+    : {
+      "content-type": "application/json",
+      [headerName]: signature ?? `t=1782532874,v1=${sign(rawBody)}`,
+    },
+  bodyRaw: rawBody === null
+    ? undefined
+    : rawBody,
+  body: JSON.parse(RAW_BODY),
+});
+
+const signedSource = () => {
+  const made = makeSource();
+  made.store.hookId = "whk_1";
+  made.store.hookSecret = SECRET;
+  return made;
 };
 
 beforeEach(reset);
@@ -126,6 +170,144 @@ describe("New Event (Instant)", () => {
     assert.match(description, /combined PDF, submission batch, custom file and folder events/);
   });
 
+  it("stores the webhook's secret next to its id", async () => {
+    respondInOrder({
+      id: "whk_1",
+      secret: SECRET,
+    });
+    const {
+      context, store,
+    } = makeSource({
+      eventTypes: [
+        "submission.processed",
+      ],
+    });
+    await source.hooks.activate.call(context);
+    assert.equal(store.hookId, "whk_1");
+    assert.equal(store.hookSecret, SECRET);
+  });
+
+  it("responds to deliveries itself, so it can turn away unsigned ones", () => {
+    assert.deepEqual(source.props.http, {
+      type: "$.interface.http",
+      customResponse: true,
+    });
+  });
+
+  it("emits a delivery signed over its raw body, and responds 200", async () => {
+    assert.notEqual(RAW_BODY, JSON.stringify(JSON.parse(RAW_BODY)));
+    const {
+      context, emitted, responses,
+    } = signedSource();
+    await source.run.call(context, delivery());
+    assert.equal(emitted.length, 1);
+    assert.equal(emitted[0].meta.id, "6f1c2e8a-3b4d-4c5e-9f60-7a8b9c0d1e2f");
+    assert.deepEqual(responses, [
+      {
+        status: 200,
+      },
+    ]);
+  });
+
+  it("accepts the delivery when any v1 signature matches, whatever the header's case", async () => {
+    const {
+      context, emitted,
+    } = signedSource();
+    await source.run.call(context, delivery({
+      headerName: "X-DocSpring-Signature",
+      signature: `t=1782532874,v1=${sign(RAW_BODY, "old_secret")},v1=${sign(RAW_BODY)}`,
+    }));
+    assert.equal(emitted.length, 1);
+  });
+
+  for (const [
+    name,
+    options,
+  ] of [
+    [
+      "signed over the re-serialised body",
+      {
+        signature: `t=1782532874,v1=${sign(JSON.stringify(JSON.parse(RAW_BODY)))}`,
+      },
+    ],
+    [
+      "whose body was changed after signing",
+      {
+        rawBody: RAW_BODY.replace("sub_1", "sub_2"),
+        signature: `t=1782532874,v1=${sign(RAW_BODY)}`,
+      },
+    ],
+    [
+      "signed with another secret",
+      {
+        signature: `t=1782532874,v1=${sign(RAW_BODY, "another_secret")}`,
+      },
+    ],
+    [
+      "whose timestamp was changed",
+      {
+        signature: `t=1782532875,v1=${sign(RAW_BODY)}`,
+      },
+    ],
+    [
+      "with no signature header",
+      {
+        signature: null,
+      },
+    ],
+    [
+      "with a header that has no timestamp",
+      {
+        signature: `v1=${sign(RAW_BODY)}`,
+      },
+    ],
+    [
+      "with a header that has no v1",
+      {
+        signature: "t=1782532874",
+      },
+    ],
+    [
+      "with a malformed header",
+      {
+        signature: "garbage",
+      },
+    ],
+    [
+      "with no raw body",
+      {
+        rawBody: null,
+        signature: `t=1782532874,v1=${sign(RAW_BODY)}`,
+      },
+    ],
+  ]) {
+    it(`drops a delivery ${name}, responding 401`, async () => {
+      const {
+        context, emitted, responses,
+      } = signedSource();
+      await source.run.call(context, delivery(options));
+      assert.equal(emitted.length, 0);
+      assert.equal(responses.length, 1);
+      assert.equal(responses[0].status, 401);
+    });
+  }
+
+  it("skips the check for a webhook saved without a secret", async () => {
+    const {
+      context, store, emitted, responses,
+    } = makeSource();
+    store.hookId = "whk_old";
+    await source.run.call(context, delivery({
+      signature: null,
+    }));
+    assert.equal(emitted.length, 1);
+    assert.deepEqual(responses, [
+      {
+        status: 200,
+      },
+    ]);
+  });
+
   it("deletes the webhook on deactivation, and treats a 404 as done", async () => {
     respondInOrder({}, httpError(404, {
       error: {
@@ -137,10 +319,12 @@ describe("New Event (Instant)", () => {
     }));
     const first = makeSource();
     first.store.hookId = "whk_1";
+    first.store.hookSecret = SECRET;
     await source.hooks.deactivate.call(first.context);
     assert.equal(requests[0].method, "DELETE");
     assert.equal(requests[0].url, "https://api.docspring.com/api/v2/webhooks/whk_1");
     assert.equal(first.store.hookId, null);
+    assert.equal(first.store.hookSecret, null);
 
     const second = makeSource();
     second.store.hookId = "whk_2";

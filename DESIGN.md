@@ -137,8 +137,9 @@ second one.
 
 - `activate()` creates the webhook with `POST /api/v2/webhooks`: `url`, `name: "Pipedream"`, `event_types`, and
   optionally `template_ids`, `mode` and `include_submission_data` (on by default). Webhooks created with API v2 send
-  version 4 events. Only the webhook's `id` is stored (`hookId` in `$.service.db`).
-- `deactivate()` deletes it; a 404 means it's already gone. Any other error fails deactivation and keeps the ID.
+  version 4 events. The webhook's `id` and `secret` are stored (`hookId` and `hookSecret` in `$.service.db`).
+- `deactivate()` deletes it and clears both; a 404 means it's already gone. Any other error fails deactivation and
+  keeps them.
 - `run()` emits the event as delivered (`id` = the event ID, `event_type`, `created_at`, `data` = the v2 resource) plus
   `resource_type` (the event type before the first dot) and `resource_id` (`data.id`). The resource stays under
   `data`, so its `id` and `created_at` don't collide with the event's. The emit's `id` is the event ID (it stays the
@@ -150,8 +151,13 @@ second one.
   template events (`app/models/webhook.rb`, `TEMPLATE_SCOPABLE_RESOURCES`), and rejects any other with a 422. The
   Templates help says so, and `activate()` fails with a `ConfigurationError` naming the other events before it calls
   the API.
-- Deliveries aren't checked against `X-DocSpring-Signature`: that would mean storing the webhook's secret, and the
-  integrations store only the webhook's ID.
+- Every delivery is checked against `X-DocSpring-Signature` before it's emitted (`utils.verifySignature`): the
+  HMAC-SHA256 hex of `"{t}.{raw body}"` with the stored secret, compared in constant time with each `v1` (any match
+  passes). There's no timestamp-age check. The raw body is the platform's `event.bodyRaw`, the unparsed request body
+  (`SourceHttpRunOptions` in the monorepo's `types/src/index.ts`; Pipedream's own HTTP source offers it "for JSON/XML
+  verification"). The monorepo's source guidelines call it `rawBody`, but no such field exists. The `http` prop has
+  `customResponse: true`, so `run()` responds itself: 401 for a missing or wrong signature (nothing is emitted), 200
+  otherwise. A source activated before the secret was stored has none, so its deliveries aren't checked.
 
 ## Pipedream conventions these follow
 

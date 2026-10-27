@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import {
   ConfigurationError, getFileStreamAndMetadata,
 } from "@pipedream/platform";
@@ -515,6 +516,65 @@ const eventsTemplatesCantFilter = (eventTypes) => (eventTypes || [])
   .filter((eventType) => !TEMPLATE_FILTERABLE_RESOURCES.includes(String(eventType).split(".")[0]));
 
 /**
+ * A request header's value, whatever the case of its name. Repeated headers are joined with
+ * commas.
+ * @param {object} [headers]
+ * @param {string} name - the header's name in lower case
+ * @returns {string|undefined}
+ */
+const headerValue = (headers, name) => {
+  const key = Object.keys(headers || {}).find((k) => k.toLowerCase() === name);
+  const value = key === undefined
+    ? undefined
+    : headers[key];
+  return Array.isArray(value)
+    ? value.join(",")
+    : value;
+};
+
+/**
+ * Whether a webhook delivery's `X-DocSpring-Signature` header (`t=<timestamp>,v1=<hex>`, with
+ * one or more `v1`) matches the HMAC-SHA256 of `"<t>.<raw body>"` with the webhook's secret.
+ * Any matching `v1` passes; the comparison is constant-time.
+ * @param {object} opts
+ * @param {string} opts.secret - the webhook's `secret`
+ * @param {string} [opts.header] - the `X-DocSpring-Signature` header
+ * @param {string|Buffer} [opts.rawBody] - the request body exactly as received
+ * @returns {boolean}
+ */
+const verifySignature = ({
+  secret, header, rawBody,
+}) => {
+  if (isBlank(header) || (typeof rawBody !== "string" && !Buffer.isBuffer(rawBody))) {
+    return false;
+  }
+  let timestamp;
+  const signatures = [];
+  for (const part of String(header).split(",")) {
+    const index = part.indexOf("=");
+    const key = part.slice(0, index).trim();
+    const value = part.slice(index + 1).trim();
+    if (index < 1 || !value) {
+      continue;
+    }
+    if (key === "t" && timestamp === undefined) {
+      timestamp = value;
+    } else if (key === "v1") {
+      signatures.push(Buffer.from(value));
+    }
+  }
+  if (!timestamp || !signatures.length) {
+    return false;
+  }
+  const expected = Buffer.from(crypto.createHmac("sha256", secret)
+    .update(`${timestamp}.`)
+    .update(rawBody)
+    .digest("hex"));
+  return signatures.some((signature) => signature.length === expected.length
+    && crypto.timingSafeEqual(signature, expected));
+};
+
+/**
  * A version 4 webhook delivery as the source emits it: the event as delivered, plus
  * `resource_type` (the event type before the first dot) and `resource_id` (`data.id`).
  * @param {object} body
@@ -558,5 +618,7 @@ export default {
   documentParams,
   signerFieldNames,
   eventsTemplatesCantFilter,
+  headerValue,
+  verifySignature,
   eventOutput,
 };

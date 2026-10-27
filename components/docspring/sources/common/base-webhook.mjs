@@ -6,7 +6,10 @@ export default {
   props: {
     docspring,
     db: "$.service.db",
-    http: "$.interface.http",
+    http: {
+      type: "$.interface.http",
+      customResponse: true,
+    },
     eventTypes: {
       propDefinition: [
         docspring,
@@ -68,6 +71,7 @@ export default {
         }),
       });
       this._setHookId(webhook.id);
+      this._setHookSecret(webhook.secret);
     },
     async deactivate() {
       const hookId = this._getHookId();
@@ -86,6 +90,7 @@ export default {
         }
       }
       this._setHookId(null);
+      this._setHookSecret(null);
     },
   },
   methods: {
@@ -95,8 +100,43 @@ export default {
     _setHookId(hookId) {
       this.db.set("hookId", hookId);
     },
+    _getHookSecret() {
+      return this.db.get("hookSecret");
+    },
+    _setHookSecret(secret) {
+      this.db.set("hookSecret", secret || null);
+    },
+    /**
+     * Whether a request came from DocSpring: its `X-DocSpring-Signature` matches the raw body
+     * (`event.bodyRaw`) signed with the webhook's secret. A source activated before the secret
+     * was stored has none, so its deliveries aren't checked.
+     * @param {object} event - the HTTP request
+     * @returns {boolean}
+     */
+    _isFromDocSpring(event) {
+      const secret = this._getHookSecret();
+      if (!secret) {
+        return true;
+      }
+      return utils.verifySignature({
+        secret,
+        header: utils.headerValue(event.headers, "x-docspring-signature"),
+        rawBody: event.bodyRaw,
+      });
+    },
   },
   async run(event) {
+    if (!this._isFromDocSpring(event)) {
+      console.log("Dropped a request whose X-DocSpring-Signature doesn't match the webhook's secret");
+      await this.http.respond({
+        status: 401,
+        body: "Invalid X-DocSpring-Signature",
+      });
+      return;
+    }
+    await this.http.respond({
+      status: 200,
+    });
     const body = (event && event.body) || {};
     // DocSpring sends each event with a unique `id` that stays the same when a delivery is
     // retried. Requiring it keeps `dedupe: "unique"` working for retries.
