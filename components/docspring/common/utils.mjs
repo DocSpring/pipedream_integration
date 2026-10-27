@@ -1,0 +1,489 @@
+import { ConfigurationError } from "@pipedream/platform";
+import constants from "./constants.mjs";
+
+const {
+  DEFAULT_MAX_RESULTS,
+  DOCS_URL,
+  PREVIOUS_VERSION,
+  RECORD_KINDS,
+  SOURCE_PDF_TYPES,
+  SUBMISSION_FAILURE_STATES,
+  TEMPLATE_DOCUMENT_FAILURE_STATES,
+} = constants;
+
+/**
+ * True for the values an optional input leaves behind when it's blank.
+ * @param {*} value
+ * @returns {boolean}
+ */
+const isBlank = (value) => value === undefined
+  || value === null
+  || (typeof value === "string" && value.trim() === "")
+  || (Array.isArray(value) && value.length === 0);
+
+const isPlainObject = (value) => value !== null
+  && typeof value === "object"
+  && !Array.isArray(value);
+
+/**
+ * Parses a JSON string, or returns a value that isn't a string as it is.
+ * @param {*} value
+ * @param {string} label - the input's label, for the error message
+ * @returns {*}
+ */
+const parseJson = (value, label) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    throw new ConfigurationError(`${label} isn't valid JSON: ${error.message}`);
+  }
+};
+
+/**
+ * Reads an object input: an object, or a JSON object as a string. Blank gives `undefined`.
+ * @param {*} value
+ * @param {string} label
+ * @returns {object|undefined}
+ */
+const parseObject = (value, label) => {
+  if (isBlank(value)) {
+    return undefined;
+  }
+  const parsed = parseJson(value, label);
+  if (!isPlainObject(parsed)) {
+    throw new ConfigurationError(`${label} must be a JSON object, e.g. \`{"key": "value"}\``);
+  }
+  return parsed;
+};
+
+/**
+ * Reads a list of objects: a JSON array as a string, or an array whose items are objects,
+ * JSON objects as strings, or JSON arrays of objects (spread into the list). Blank gives
+ * `undefined`.
+ * @param {*} value
+ * @param {string} label
+ * @returns {object[]|undefined}
+ */
+const parseObjectArray = (value, label) => {
+  if (isBlank(value)) {
+    return undefined;
+  }
+  const parsed = parseJson(value, label);
+  const items = Array.isArray(parsed)
+    ? parsed
+    : [
+      parsed,
+    ];
+  const result = [];
+  items.forEach((item, index) => {
+    if (isBlank(item)) {
+      return;
+    }
+    const parsedItem = parseJson(item, `${label} item ${index + 1}`);
+    const objects = Array.isArray(parsedItem)
+      ? parsedItem
+      : [
+        parsedItem,
+      ];
+    for (const object of objects) {
+      if (!isPlainObject(object)) {
+        throw new ConfigurationError(`Each item in ${label} must be a JSON object, e.g. \`{"key": "value"}\``);
+      }
+      result.push(object);
+    }
+  });
+  return result.length
+    ? result
+    : undefined;
+};
+
+/**
+ * Reads a list of strings: an array, a JSON array as a string, or one comma- or
+ * newline-separated string. Blank items are dropped; blank gives `undefined`.
+ * @param {*} value
+ * @returns {string[]|undefined}
+ */
+const parseStringArray = (value) => {
+  if (isBlank(value)) {
+    return undefined;
+  }
+  let items = value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    items = trimmed.startsWith("[")
+      ? parseJson(trimmed, "The list")
+      : trimmed.split(/[\n,]/);
+  }
+  if (!Array.isArray(items)) {
+    items = [
+      items,
+    ];
+  }
+  const result = items.map((item) => String(item).trim()).filter(Boolean);
+  return result.length
+    ? result
+    : undefined;
+};
+
+/**
+ * Converts `true`/`false` or their strings to a boolean. Blank gives `undefined`.
+ * @param {*} value
+ * @param {string} label
+ * @returns {boolean|undefined}
+ */
+const toBoolean = (value, label) => {
+  if (isBlank(value)) {
+    return undefined;
+  }
+  if (typeof value === "boolean") {
+    return value;
+  }
+  const text = String(value).trim()
+    .toLowerCase();
+  if (text === "true") {
+    return true;
+  }
+  if (text === "false") {
+    return false;
+  }
+  throw new ConfigurationError(`${label} must be \`true\` or \`false\`, not \`${value}\``);
+};
+
+/**
+ * Converts an integer or a string of digits to an integer. Blank gives `undefined`.
+ * @param {*} value
+ * @param {string} label
+ * @returns {number|undefined}
+ */
+const toInteger = (value, label) => {
+  if (isBlank(value)) {
+    return undefined;
+  }
+  const number = typeof value === "number"
+    ? value
+    : Number(String(value).trim());
+  if (!Number.isInteger(number)) {
+    throw new ConfigurationError(`${label} must be a whole number, not \`${value}\``);
+  }
+  return number;
+};
+
+/**
+ * Reads a Max Results input: a whole number of at least 1, or the default when blank.
+ * @param {*} value
+ * @returns {number}
+ */
+const maxResults = (value) => {
+  const number = toInteger(value, "Max Results");
+  if (number === undefined) {
+    return DEFAULT_MAX_RESULTS;
+  }
+  if (number < 1) {
+    throw new ConfigurationError(`Max Results must be at least 1, not \`${value}\``);
+  }
+  return number;
+};
+
+/**
+ * Removes the keys whose values are blank (`undefined`, `null`, `""` or `[]`), so optional
+ * inputs that weren't filled in aren't sent.
+ * @param {object} object
+ * @returns {object}
+ */
+const compact = (object) => Object.fromEntries(
+  Object.entries(object).filter(([
+    , value,
+  ]) => !isBlank(value)),
+);
+
+/**
+ * The submission lists' `test` filter for a mode of `any`, `live` or `test`.
+ * @param {string} [mode]
+ * @returns {boolean|undefined}
+ */
+const testFilter = (mode) => {
+  if (mode === "live") {
+    return false;
+  }
+  if (mode === "test") {
+    return true;
+  }
+  return undefined;
+};
+
+/**
+ * A folder input's value for the API: `root` is the root folder (`null`).
+ * @param {string} [folderId]
+ * @returns {string|null|undefined}
+ */
+const folderValue = (folderId) => {
+  if (isBlank(folderId)) {
+    return undefined;
+  }
+  return String(folderId).trim() === "root"
+    ? null
+    : folderId;
+};
+
+/**
+ * A link to an operation in DocSpring's API reference.
+ * @param {string} tag - e.g. `submissions`
+ * @param {string} method - e.g. `post`
+ * @param {string} path - e.g. `/templates/{template_id}/submissions`
+ * @returns {string}
+ */
+const docsLink = (tag, method, path) => `${DOCS_URL}#tag/${tag}/${method}${path}`;
+
+const recordLines = (error) => Object.entries(RECORD_KINDS)
+  .filter(([
+    key,
+  ]) => error[key])
+  .map(([
+    key,
+    kind,
+  ]) => `${kind.noun}: ${error[key]}`);
+
+const pollingTimeoutMessage = (error) => {
+  const [
+    key,
+  ] = Object.keys(RECORD_KINDS).filter((k) => error[k]);
+  if (!key) {
+    return "The PDF wasn't ready in time.";
+  }
+  const kind = RECORD_KINDS[key];
+  if (key === "template_id") {
+    return `The template's PDF wasn't processed in time. Get it later with ${kind.getAction} (${error[key]}).`;
+  }
+  return `The PDF wasn't ready in time. Get it later with ${kind.getAction} (${error[key]}), or use the ${kind.event} trigger.`;
+};
+
+const legacyErrorText = (data) => {
+  if (typeof data === "string") {
+    return data.trim().slice(0, 500);
+  }
+  if (!isPlainObject(data)) {
+    return "";
+  }
+  if (typeof data.error === "string") {
+    return data.error;
+  }
+  if (Array.isArray(data.errors)) {
+    return data.errors.map((e) => (typeof e === "string"
+      ? e
+      : JSON.stringify(e))).join("; ");
+  }
+  if (typeof data.message === "string") {
+    return data.message;
+  }
+  return "";
+};
+
+/**
+ * The message for a failed DocSpring API request: the error's code and message, one line
+ * per detail, the record it's about and the request ID.
+ * @param {object} opts
+ * @param {number} opts.status - the HTTP status
+ * @param {string} [opts.statusText]
+ * @param {*} [opts.data] - the response body
+ * @param {boolean} [opts.selfHosted] - whether the request went to a self-hosted server
+ * @returns {string}
+ */
+const formatApiError = ({
+  status, statusText, data, selfHosted,
+}) => {
+  const error = isPlainObject(data) && isPlainObject(data.error)
+    ? data.error
+    : null;
+  if (!error || typeof error.code !== "string") {
+    if (status === 404 && selfHosted) {
+      return "This DocSpring server doesn't have API v2 yet. Upgrade it to the latest release, "
+        + `or use version ${PREVIOUS_VERSION} of this integration.`;
+    }
+    const text = legacyErrorText(data) || statusText || "Request failed";
+    return `DocSpring API error ${status}: ${text}`;
+  }
+  const lines = [];
+  if (error.code === "polling_timeout") {
+    lines.push(pollingTimeoutMessage(error));
+  } else {
+    lines.push(`DocSpring API error ${status} ${error.code}: ${error.message}`);
+    for (const detail of Array.isArray(error.details)
+      ? error.details
+      : []) {
+      const where = detail.pointer || detail.parameter;
+      const record = detail.submission_id
+        ? ` (submission ${detail.submission_id})`
+        : "";
+      lines.push(`${where
+        ? `${where}: `
+        : ""}${detail.message}${record}`);
+    }
+    lines.push(...recordLines(error));
+  }
+  if (error.request_id) {
+    lines.push(`Request ID: ${error.request_id}`);
+  }
+  return lines.join("\n");
+};
+
+/**
+ * Why a submission, combined PDF, batch or template came back failed from a request that
+ * waited for it, or `null` when it didn't fail.
+ * @param {string} kind - `submission`, `combined_pdf`, `submission_batch` or `template`
+ * @param {object} record - the API's response
+ * @returns {string|null}
+ */
+const failureMessage = (kind, record) => {
+  if (!isPlainObject(record)) {
+    return null;
+  }
+  if (kind === "submission" && SUBMISSION_FAILURE_STATES.includes(record.state)) {
+    return `Submission ${record.id} failed (state: ${record.state}): ${record.error_message || "no error message"}`;
+  }
+  if (kind === "combined_pdf" && record.state === "error") {
+    return `Combined PDF ${record.id} failed (state: error): ${record.error_message || "no error message"}`;
+  }
+  if (kind === "submission_batch" && record.state === "error") {
+    const failed = (record.submissions || [])
+      .filter((s) => SUBMISSION_FAILURE_STATES.includes(s.state) || s.state === "invalid_data")
+      .slice(0, 5)
+      .map((s) => `${s.id} (${s.state}): ${s.error_message || "no error message"}`);
+    return `Submission batch ${record.id} failed (state: error): ${record.error_count} of ${record.total_count} submissions failed`
+      + (failed.length
+        ? `\n${failed.join("\n")}`
+        : "");
+  }
+  if (kind === "template") {
+    const document = record.document;
+    if (isPlainObject(document) && TEMPLATE_DOCUMENT_FAILURE_STATES.includes(document.state)) {
+      return `Template ${record.id}'s PDF failed (state: ${document.state}): ${document.error_message || "no error message"}`;
+    }
+  }
+  return null;
+};
+
+/**
+ * Why a file that Generate Submission Files asked for failed, or `null`.
+ * @param {object} submission
+ * @param {string[]} formats
+ * @returns {string|null}
+ */
+const fileFailureMessage = (submission, formats) => {
+  const files = (submission && submission.files) || {};
+  for (const format of formats) {
+    const file = files[format];
+    if (file && file.state === "error") {
+      return `Submission ${submission.id}'s ${format} file failed (state: error): ${file.error_message || "no error message"}`;
+    }
+  }
+  return null;
+};
+
+/**
+ * Builds a combined PDF source from an input object, with only the properties its type takes.
+ * @param {object} source
+ * @param {number} index
+ * @returns {object}
+ */
+const toSourcePdf = (source, index) => {
+  const where = `Source PDF ${index + 1}`;
+  const { type } = source;
+  if (!SOURCE_PDF_TYPES.includes(type)) {
+    throw new ConfigurationError(`${where} needs a \`type\` of ${SOURCE_PDF_TYPES.map((t) => `\`${t}\``).join(", ")}`);
+  }
+  if (type !== "template" && (source.template_version !== undefined || source.processed !== undefined)) {
+    throw new ConfigurationError(`${where}: \`template_version\` and \`processed\` only apply to \`template\` sources`);
+  }
+  if (type === "url") {
+    if (isBlank(source.url)) {
+      throw new ConfigurationError(`${where} is a \`url\` source, so it needs a \`url\``);
+    }
+    return {
+      type,
+      url: source.url,
+    };
+  }
+  if (isBlank(source.id)) {
+    throw new ConfigurationError(`${where} is a \`${type}\` source, so it needs an \`id\``);
+  }
+  return compact({
+    type,
+    id: source.id,
+    template_version: type === "template"
+      ? source.template_version
+      : undefined,
+    processed: type === "template"
+      ? toBoolean(source.processed, `${where} processed`)
+      : undefined,
+  });
+};
+
+/**
+ * The names a signer can be given to fill in, from a template's fields: each name once,
+ * without static fields, `combined` fields or `@@` submission details, which take no value.
+ * @param {object[]} fields - the template's fields
+ * @returns {string[]}
+ */
+const signerFieldNames = (fields) => {
+  const names = [];
+  for (const field of fields || []) {
+    const name = field && field.name;
+    if (!name
+      || field.static
+      || field.type === "combined"
+      || name.startsWith("@@")
+      || names.includes(name)) {
+      continue;
+    }
+    names.push(name);
+  }
+  return names;
+};
+
+/**
+ * A version 4 webhook delivery as the source emits it: the event as delivered, plus
+ * `resource_type` (the event type before the first dot) and `resource_id` (`data.id`).
+ * @param {object} body
+ * @returns {object}
+ */
+const eventOutput = (body) => {
+  const eventType = typeof body.event_type === "string"
+    ? body.event_type
+    : null;
+  const data = isPlainObject(body.data)
+    ? body.data
+    : null;
+  return {
+    ...body,
+    resource_type: eventType
+      ? eventType.split(".")[0]
+      : null,
+    resource_id: data && data.id !== undefined
+      ? data.id
+      : null,
+  };
+};
+
+export default {
+  isBlank,
+  parseJson,
+  parseObject,
+  parseObjectArray,
+  parseStringArray,
+  toBoolean,
+  toInteger,
+  maxResults,
+  compact,
+  testFilter,
+  folderValue,
+  docsLink,
+  formatApiError,
+  failureMessage,
+  fileFailureMessage,
+  toSourcePdf,
+  signerFieldNames,
+  eventOutput,
+};

@@ -1,4 +1,5 @@
 import docspring from "../../docspring.app.mjs";
+import utils from "../../common/utils.mjs";
 
 export default {
   props: {
@@ -11,79 +12,93 @@ export default {
         "eventTypes",
       ],
     },
+    templateIds: {
+      propDefinition: [
+        docspring,
+        "templateId",
+      ],
+      type: "string[]",
+      label: "Templates",
+      description: "Only emit events for these templates (their submissions, signature requests and template events), e.g. `[\"tpl_1234567890abcdef01\"]`."
+        + " Use **Find Templates** to find them (the `id` field). With templates set, only submission, signature request and template events can be chosen."
+        + " Leave blank for every template.",
+      optional: true,
+    },
     mode: {
       type: "string",
-      label: "Mode",
-      description: "Only receive live or test events. Leave blank for both.",
+      label: "Live or Test",
+      description: "Only emit events for `live` or `test` submissions, e.g. `live`. Leave blank for both.",
       options: [
         "live",
         "test",
       ],
       optional: true,
     },
+    includeSubmissionData: {
+      type: "boolean",
+      label: "Include Submission Data",
+      description: "`true` (the default) includes submissions' and signature requests' field values in `data`;"
+        + " `false` sends them as null. e.g. `true`.",
+      default: true,
+      optional: true,
+    },
   },
   hooks: {
     async activate() {
-      const webhook = {
-        url: this.http.endpoint,
-        event_types: this.eventTypes,
-        include_submission_data: true,
-        version: 3,
-        name: "Pipedream",
-      };
-      if (this.mode) {
-        webhook.mode = this.mode;
-      }
-      const res = await this.docspring.createWebhook({ data: { webhook } });
-      this.db.set("webhookId", res.id);
+      const webhook = await this.docspring.createWebhook({
+        data: utils.compact({
+          url: this.http.endpoint,
+          name: "Pipedream",
+          event_types: utils.parseStringArray(this.eventTypes),
+          template_ids: utils.parseStringArray(this.templateIds),
+          mode: this.mode,
+          include_submission_data: utils.toBoolean(this.includeSubmissionData, "Include Submission Data") ?? true,
+        }),
+      });
+      this._setHookId(webhook.id);
     },
     async deactivate() {
-      const webhookId = this.db.get("webhookId");
-      if (webhookId) {
-        try {
-          await this.docspring.deleteWebhook({ webhookId });
-        } catch (error) {
-          // A 404 means the webhook was already deleted. Any other error (e.g. a
-          // revoked token) leaves it registered, so let deactivation fail.
-          if (error.response?.status !== 404) {
-            throw error;
-          }
+      const hookId = this._getHookId();
+      if (!hookId) {
+        return;
+      }
+      try {
+        await this.docspring.deleteWebhook({
+          webhookId: hookId,
+        });
+      } catch (error) {
+        // A 404 means the webhook was already deleted. Any other error (e.g. a revoked
+        // token) leaves it in DocSpring, so deactivation fails.
+        if (error.response?.status !== 404) {
+          throw error;
         }
       }
+      this._setHookId(null);
     },
   },
   methods: {
-    // Flatten a v3 delivery: top-level `id` is the event uuid; the resource's own
-    // id is exposed as `resource_id` (parity with the other DocSpring integrations).
-    flatten(body) {
-      const data = (body && body.data) || {};
-      const resource = data.resource || {};
-      const {
-        id: resourceId, resource: _resource, ...rest
-      } = data;
-      return {
-        id: body && body.id,
-        event: body && body.event,
-        timestamp: body && body.timestamp,
-        resource_type: resource.type,
-        resource_id: resourceId != null ? resourceId : resource.id,
-        ...rest,
-      };
+    _getHookId() {
+      return this.db.get("hookId");
+    },
+    _setHookId(hookId) {
+      this.db.set("hookId", hookId);
     },
   },
   async run(event) {
     const body = (event && event.body) || {};
-    // DocSpring always sends a unique event `id`. Requiring it (rather than
-    // falling back to Date.now()) keeps `dedupe: "unique"` effective, so a
-    // retried delivery is de-duplicated instead of re-running the workflow.
+    // DocSpring sends each event with a unique `id` that stays the same when a delivery is
+    // retried. Requiring it keeps `dedupe: "unique"` working for retries.
     if (!body.id) {
-      throw new Error("DocSpring webhook delivery is missing an event `id`");
+      throw new Error("The DocSpring webhook delivery has no event `id`");
     }
-    const flattened = this.flatten(body);
-    this.$emit(flattened, {
+    const output = utils.eventOutput(body);
+    const ts = Date.parse(body.created_at);
+    this.$emit(output, {
       id: body.id,
-      summary: `${body.event || "event"}: ${flattened.resource_id || ""}`,
-      ts: body.timestamp ? Date.parse(body.timestamp) : Date.now(),
+      summary: `${body.event_type || "Event"}: ${output.resource_id ?? ""}`,
+      ts: Number.isNaN(ts)
+        ? Date.now()
+        : ts,
     });
   },
 };
