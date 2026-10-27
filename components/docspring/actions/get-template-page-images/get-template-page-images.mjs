@@ -7,7 +7,7 @@ export default {
   description: "Get an image of each page of a PDF template, with links to download them, for previews or to see where fields go."
     + " Use **List Template Fields** for the fields on each page."
     + " [See the documentation](https://docspring.com/docs/api/#tag/templates/get/templates/{template_id}/page_images)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

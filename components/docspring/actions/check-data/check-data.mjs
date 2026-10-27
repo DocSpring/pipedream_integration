@@ -7,7 +7,7 @@ export default {
   description: "Check data against a template without making a PDF or saving anything. Returns `valid`, and when it's `false`, an `error` that lists each problem in `details`."
     + " Use it before **Generate PDF** or **Create Signature Request**; it checks signers in the same way."
     + " [See the documentation](https://docspring.com/docs/api/#tag/submissions/post/templates/{template_id}/submissions/validate)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

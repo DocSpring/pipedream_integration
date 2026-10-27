@@ -6,7 +6,7 @@ export default {
   description: "Get a signature request: who it's for, its `state` (`pending`, `completed` or `declined`), when it was viewed, completed or declined,"
     + " and the values its signer filled in. Use **Get Submission** for the submission and its signed PDF."
     + " [See the documentation](https://docspring.com/docs/api/#tag/signature-requests/get/signature_requests/{signature_request_id})",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

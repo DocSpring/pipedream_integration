@@ -6,7 +6,7 @@ export default {
   description: "Get a submission with its data, state, signature requests and files. The PDF's links are in `files.pdf` once `state` is `processed`"
     + " (`download_url` expires; `permanent_url` doesn't). Use **Find Submissions** to find submissions without an ID."
     + " [See the documentation](https://docspring.com/docs/api/#tag/submissions/get/submissions/{submission_id})",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

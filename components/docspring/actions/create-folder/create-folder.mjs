@@ -7,7 +7,7 @@ export default {
   description: "Create a folder for templates, at the root or in another folder. Returns the folder, with its `id` and `path`."
     + " Use **Move Template** or **Create Template** to put templates in it."
     + " [See the documentation](https://docspring.com/docs/api/#tag/folders/post/folders)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

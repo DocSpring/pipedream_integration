@@ -12,7 +12,7 @@ export default {
     + " Each signer needs the names of the fields they fill in (see **List Template Fields**); each field can be in only one signer's list."
     + " Use **Create Signing Link** to make a new link later."
     + " [See the documentation](https://docspring.com/docs/api/#tag/submissions/post/templates/{template_id}/submissions)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

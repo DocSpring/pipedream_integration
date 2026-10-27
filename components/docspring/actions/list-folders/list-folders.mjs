@@ -7,7 +7,7 @@ export default {
   description: "List the account's template folders, with each one's `id`, `name`, `path` and `parent_folder_id`: every folder at any depth, or the folders in one folder."
     + " Use the IDs with **Find Templates**, **Create Template**, **Move Template** and **Create Folder**."
     + " [See the documentation](https://docspring.com/docs/api/#tag/folders/get/folders)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

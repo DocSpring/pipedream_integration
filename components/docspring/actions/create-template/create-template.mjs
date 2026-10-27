@@ -23,7 +23,7 @@ export default {
     + " Returns the template; `ready` says whether it can generate PDFs yet, and `document.state` how its PDF is processing."
     + " Use **Generate PDF** with its `id` next, or **Replace Template PDF** to change its PDF later."
     + " [See the documentation](https://docspring.com/docs/api/#tag/templates/post/templates)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

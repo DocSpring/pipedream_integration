@@ -8,7 +8,7 @@ export default {
     + " Use **Find Templates** to find the template, **List Template Fields** for its field names, and **Check Data** to test data without making a PDF."
     + " Invalid data fails with each problem listed. For people who fill in or sign the PDF, use **Create Signature Request** instead."
     + " [See the documentation](https://docspring.com/docs/api/#tag/submissions/post/templates/{template_id}/submissions)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

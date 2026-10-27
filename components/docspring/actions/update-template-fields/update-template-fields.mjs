@@ -9,7 +9,7 @@ export default {
     + " Changing a shared setting changes it for every field with the same name. Returns all of the template's fields."
     + " Use **List Template Fields** to find the fields' IDs, and **Publish Template Version** to publish the change."
     + " [See the documentation](https://docspring.com/docs/api/#tag/templates/put/templates/{template_id}/fields)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

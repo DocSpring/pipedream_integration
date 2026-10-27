@@ -1,10 +1,7 @@
 // Keep in step with package.json's "version": DocSpring counts the integration's users by
 // this User-Agent, and Pipedream bumps the package with every component change.
-const PACKAGE_VERSION = "0.1.0";
+const PACKAGE_VERSION = "0.0.1";
 const USER_AGENT = `docspring-pipedream/${PACKAGE_VERSION}`;
-
-// The last version of these components on API v1, named when a self-hosted server has no API v2.
-const PREVIOUS_VERSION = "0.0.1";
 
 const API_PATH = "/api/v2";
 
@@ -225,7 +222,6 @@ const RECORD_KINDS = {
 export default {
   PACKAGE_VERSION,
   USER_AGENT,
-  PREVIOUS_VERSION,
   API_PATH,
   HOSTS,
   MAX_PAGE_SIZE,

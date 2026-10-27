@@ -9,7 +9,7 @@ export default {
     + " Returns the combined PDF, with its links in `files.pdf`."
     + " Use **Find Submissions** or **Generate PDF** for submission IDs and **Find Templates** for template IDs."
     + " [See the documentation](https://docspring.com/docs/api/#tag/combined-pdfs/post/combined_pdfs)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

@@ -10,7 +10,7 @@ export default {
     + " plus `template_id` and `template_version` to use another template than the batch's."
     + " Use **Get Submission Batch** to check on a batch later."
     + " [See the documentation](https://docspring.com/docs/api/#tag/submissions/post/submissions/batches)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

@@ -8,7 +8,7 @@ export default {
   description: "Make more files for a processed submission: `png`, an image of each page of its PDF (up to 100 pages)."
     + " Returns the submission, with the images in `files.png`. Use **Generate PDF** with `png` in **Output Formats** to make them with the PDF instead."
     + " [See the documentation](https://docspring.com/docs/api/#tag/submissions/post/submissions/{submission_id}/generate_files)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

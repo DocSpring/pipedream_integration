@@ -8,7 +8,7 @@ export default {
     + " or replacing them with the new PDF's form fields with **Reimport Fields**. Published versions keep their PDF; this changes the draft."
     + " Returns the template; `document.state` says how the new PDF is processing. Use **Publish Template Version** to publish the change."
     + " [See the documentation](https://docspring.com/docs/api/#tag/templates/put/templates/{template_id}/document)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

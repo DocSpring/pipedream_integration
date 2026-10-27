@@ -8,7 +8,7 @@ export default {
   description: "Remove fields from a template's draft. Returns the template's remaining fields."
     + " Use **List Template Fields** to find the fields' IDs, and **Publish Template Version** to publish the change."
     + " [See the documentation](https://docspring.com/docs/api/#tag/templates/post/templates/{template_id}/fields/remove)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

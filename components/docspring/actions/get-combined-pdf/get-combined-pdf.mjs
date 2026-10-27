@@ -6,7 +6,7 @@ export default {
   description: "Get a combined PDF with its state, sources and file. Its links are in `files.pdf` once `state` is `processed`."
     + " Use it after **Combine PDFs**."
     + " [See the documentation](https://docspring.com/docs/api/#tag/combined-pdfs/get/combined_pdfs/{combined_pdf_id})",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

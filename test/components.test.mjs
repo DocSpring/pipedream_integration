@@ -115,6 +115,18 @@ describe("components", () => {
     }
   });
 
+  it("starts every component and the package at 0.0.1, as Pipedream's new components do", async () => {
+    const source = await loadComponent("sources/new-event/new-event.mjs");
+    assert.equal(pkg.version, "0.0.1");
+    for (const [
+      folder,
+      action,
+    ] of actions) {
+      assert.equal(action.version, "0.0.1", folder);
+    }
+    assert.equal(source.version, "0.0.1");
+  });
+
   it("gives the source no annotations, the package's version and dedupe", async () => {
     const source = await loadComponent("sources/new-event/new-event.mjs");
     assert.equal(source.key, "docspring-new-event");

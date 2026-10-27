@@ -9,7 +9,7 @@ export default {
     + " settings left out have their defaults, and a field named like existing fields shares their settings."
     + " Returns all of the template's fields. Use **List Template Fields** to see existing fields' settings, and **Publish Template Version** to publish the change."
     + " [See the documentation](https://docspring.com/docs/api/#tag/templates/post/templates/{template_id}/fields)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

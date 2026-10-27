@@ -8,7 +8,7 @@ export default {
     + " The batch is finished once `processed_at` is set; `state` is `error` as soon as one submission fails."
     + " Use it after **Generate PDFs in a Batch**."
     + " [See the documentation](https://docspring.com/docs/api/#tag/submissions/get/submissions/batches/{submission_batch_id})",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

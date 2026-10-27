@@ -8,7 +8,7 @@ export default {
     + " A form that opened in time keeps working for 7 more days."
     + " Use **Create Signature Request** or **Get Submission** to find the signature request's ID."
     + " [See the documentation](https://docspring.com/docs/api/#tag/signature-requests/post/signature_requests/{signature_request_id}/tokens)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

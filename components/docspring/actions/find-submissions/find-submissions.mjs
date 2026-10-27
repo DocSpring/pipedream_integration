@@ -8,7 +8,7 @@ export default {
     + " Returns a list of submissions; each one's PDF links are in `files.pdf`."
     + " Use **Get Submission** when you have the submission's ID."
     + " [See the documentation](https://docspring.com/docs/api/#tag/submissions/get/submissions)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

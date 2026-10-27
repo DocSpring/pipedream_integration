@@ -56,7 +56,7 @@ describe("hosts and headers", () => {
     await makeApp().testAuthentication();
     const { headers } = requests[0];
     assert.equal(headers.Authorization, `Basic ${Buffer.from("api_test123:secret456").toString("base64")}`);
-    assert.equal(headers["User-Agent"], "docspring-pipedream/0.1.0");
+    assert.equal(headers["User-Agent"], "docspring-pipedream/0.0.1");
     assert.equal(requests[0].url, "https://api.docspring.com/api/v2/authentication");
   });
 
@@ -318,7 +318,7 @@ describe("errors", () => {
       region: "self_hosted",
       custom_host: "https://docspring.example.com",
     }).testAuthentication(), {
-      message: "This DocSpring server doesn't have API v2 yet. Upgrade it to the latest release, or use version 0.0.1 of this integration.",
+      message: "This DocSpring server doesn't have API v2 yet. Upgrade it to the latest release.",
     });
   });
 

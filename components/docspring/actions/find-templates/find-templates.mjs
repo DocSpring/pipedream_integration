@@ -7,7 +7,7 @@ export default {
   description: "Find templates by name, optionally in one folder. Returns a list of template summaries, newest first (`id`, `name`, `path`, `ready`, `document` and settings)."
     + " Use **Get Template** for one template's full settings and **List Template Fields** for its fields."
     + " [See the documentation](https://docspring.com/docs/api/#tag/templates/get/templates)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

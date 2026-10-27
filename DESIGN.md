@@ -76,7 +76,7 @@ names the release, and DocSpring counts users by it in `api_logs.user_agent`.
   ("The PDF wasn't ready in time. Get it later with Get Submission (sub_...), or use the submission.processed
   trigger.").
 - A 404 from a self-hosted server whose body isn't a v2 error means the server has no API v2: "This DocSpring server
-  doesn't have API v2 yet. Upgrade it to the latest release, or use version 0.0.1 of this integration." A v2
+  doesn't have API v2 yet. Upgrade it to the latest release." A v2
   `not_found` is reported as it is.
 - A 201 whose record failed throws, naming the state, the error message and the ID: a submission in `error`,
   `syntax_error`, `image_download_failed` or `image_processing_failed`; a combined PDF or batch in `error`; a template
@@ -173,7 +173,8 @@ From the monorepo's `.github/pipedream-component-guidelines.md` and its CodeRabb
 - File inputs (`document`) have `format: "file-ref"` and a `syncDir` prop (`type: "dir"`, `accessMode: "read"`), and
   are read with `getFileStreamAndMetadata`. A public `https://` URL goes to DocSpring as `document_url` (up to 100 MB)
   instead of being downloaded; a file is sent as `document_base64` (up to 7 MB).
-- New versions: bump each changed component's `version` and `package.json` (and `PACKAGE_VERSION`).
+- Versions: every component and `package.json` start at `0.0.1`, as new components must (none of these has been
+  published). After that, bump each changed component's `version` and `package.json` (and `PACKAGE_VERSION`).
 
 ## Testing
 

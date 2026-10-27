@@ -7,7 +7,6 @@ import constants from "./constants.mjs";
 const {
   DEFAULT_MAX_RESULTS,
   MAX_BASE64_DOCUMENT_BYTES,
-  PREVIOUS_VERSION,
   RECORD_KINDS,
   SOURCE_PDF_TYPES,
   SUBMISSION_FAILURE_STATES,
@@ -315,8 +314,7 @@ const formatApiError = ({
     : null;
   if (!error || typeof error.code !== "string") {
     if (status === 404 && selfHosted) {
-      return "This DocSpring server doesn't have API v2 yet. Upgrade it to the latest release, "
-        + `or use version ${PREVIOUS_VERSION} of this integration.`;
+      return "This DocSpring server doesn't have API v2 yet. Upgrade it to the latest release.";
     }
     const text = legacyErrorText(data) || statusText || "Request failed";
     return `DocSpring API error ${status}: ${text}`;

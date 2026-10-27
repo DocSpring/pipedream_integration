@@ -7,7 +7,7 @@ export default {
   description: "Copy a template's draft, or one of its published versions, to a new template. Returns the copy."
     + " Use **Find Templates** to find the template and **List Folders** for the folder."
     + " [See the documentation](https://docspring.com/docs/api/#tag/templates/post/templates/{template_id}/copy)",
-  version: "0.1.0",
+  version: "0.0.1",
   type: "action",
   ai: "optimized",
   annotations: {

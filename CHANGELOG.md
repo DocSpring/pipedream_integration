@@ -1,8 +1,10 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.0.1 (unreleased)
 
-The components now use DocSpring's API v2, and webhooks send version 4 events.
+The first published components, on DocSpring's API v2 with version 4 webhooks. Every component starts at 0.0.1, as
+new Pipedream components do. An earlier draft on API v1 was submitted in PipedreamHQ/pipedream#21947 and never
+published; the list below is what changed from it.
 
 - **Self-hosted DocSpring servers need the release that has API v2.** On an older server, every action says to
   upgrade it.
@@ -26,7 +28,3 @@ The components now use DocSpring's API v2, and webhooks send version 4 events.
   Files, Expire Submission, Get Combined PDF, Get Signature Request, Get Template, Create Template, Replace Template PDF,
   Copy Template, Move Template, Publish Template Version, List Template Fields, Add Template Fields, Update Template
   Fields, Remove Template Fields, Get Template Page Images, List Folders and Create Folder.
-
-## 0.0.1
-
-The first components (API v1, version 3 webhooks), submitted in PipedreamHQ/pipedream#21947 and not published.
