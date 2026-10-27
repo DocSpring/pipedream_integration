@@ -48,6 +48,10 @@ names the release, and DocSpring counts users by it in `api_logs.user_agent`.
 
 - JSON bodies, flat (no `{webhook: ...}` wrappers). `version` and `wait` are query parameters; a batch's template
   version is `template_version` in its body.
+- IDs in request paths go through `utils.pathId`: trimmed and encoded with `encodeURIComponent`, so an ID from an
+  earlier step or an agent can't point the request at another endpoint (`../templates/tpl_...` as a submission ID
+  would otherwise make Expire Submission delete a template). A blank ID, `.` or `..` is a `ConfigurationError` before
+  any request. Every app method that puts an ID in its path does this (a test checks).
 - Inputs left blank aren't sent (`utils.compact` drops `undefined`, `null`, `""` and `[]`). `test` is sent only when
   it's true: v2 rejects `test: false` from a test token, and a test token always makes test PDFs anyway.
 - Strings that Pipedream hands over for booleans and integers are converted, and ones that can't be are a

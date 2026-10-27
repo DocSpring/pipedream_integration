@@ -202,6 +202,27 @@ const compact = (object) => Object.fromEntries(
 );
 
 /**
+ * An ID for a request path, trimmed and percent-encoded so it can only name one record.
+ * A blank ID, `.` or `..` would send the request to a different endpoint, so they throw
+ * before any request is made.
+ * @param {*} value - the ID
+ * @param {string} label - the input's name, for the error message, e.g. `Submission ID`
+ * @returns {string}
+ */
+const pathId = (value, label) => {
+  const id = isBlank(value)
+    ? ""
+    : String(value).trim();
+  if (!id) {
+    throw new ConfigurationError(`${label} is required`);
+  }
+  if (id === "." || id === "..") {
+    throw new ConfigurationError(`\`${id}\` isn't a valid ${label}`);
+  }
+  return encodeURIComponent(id);
+};
+
+/**
  * The submission lists' `test` filter for a mode of `any`, `live` or `test`.
  * @param {string} [mode]
  * @returns {boolean|undefined}
@@ -517,6 +538,7 @@ export default {
   toInteger,
   maxResults,
   compact,
+  pathId,
   testFilter,
   folderValue,
   formatApiError,

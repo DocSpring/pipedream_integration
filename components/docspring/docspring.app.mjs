@@ -395,12 +395,12 @@ export default {
      * @param {boolean} [opts.sync=false]
      * @returns {Promise<object>} the submission
      */
-    createSubmission({
+    async createSubmission({
       templateId, sync = false, ...args
     }) {
       return this._makeRequest({
         method: "POST",
-        path: `/templates/${templateId}/submissions`,
+        path: `/templates/${utils.pathId(templateId, "Template ID")}/submissions`,
         sync,
         ...args,
       });
@@ -423,11 +423,11 @@ export default {
      * @param {string} opts.submissionBatchId
      * @returns {Promise<object>} the submission batch
      */
-    getSubmissionBatch({
+    async getSubmissionBatch({
       submissionBatchId, ...args
     }) {
       return this._makeRequest({
-        path: `/submissions/batches/${submissionBatchId}`,
+        path: `/submissions/batches/${utils.pathId(submissionBatchId, "Submission Batch ID")}`,
         ...args,
       });
     },
@@ -437,12 +437,12 @@ export default {
      * @param {string} opts.templateId
      * @returns {Promise<object>} `{valid, template_id, template_version, error}`
      */
-    validateSubmission({
+    async validateSubmission({
       templateId, ...args
     }) {
       return this._makeRequest({
         method: "POST",
-        path: `/templates/${templateId}/submissions/validate`,
+        path: `/templates/${utils.pathId(templateId, "Template ID")}/submissions/validate`,
         ...args,
       });
     },
@@ -451,11 +451,11 @@ export default {
      * @param {string} opts.submissionId
      * @returns {Promise<object>} the submission
      */
-    getSubmission({
+    async getSubmission({
       submissionId, ...args
     }) {
       return this._makeRequest({
-        path: `/submissions/${submissionId}`,
+        path: `/submissions/${utils.pathId(submissionId, "Submission ID")}`,
         ...args,
       });
     },
@@ -476,11 +476,11 @@ export default {
      * @param {string} opts.templateId
      * @returns {Promise<{data: object[], next_cursor: string|null}>}
      */
-    listTemplateSubmissions({
+    async listTemplateSubmissions({
       templateId, ...args
     }) {
       return this._makeRequest({
-        path: `/templates/${templateId}/submissions`,
+        path: `/templates/${utils.pathId(templateId, "Template ID")}/submissions`,
         ...args,
       });
     },
@@ -490,12 +490,12 @@ export default {
      * @param {string} opts.submissionId
      * @returns {Promise<object>} the submission
      */
-    generateSubmissionFiles({
+    async generateSubmissionFiles({
       submissionId, ...args
     }) {
       return this._makeRequest({
         method: "POST",
-        path: `/submissions/${submissionId}/generate_files`,
+        path: `/submissions/${utils.pathId(submissionId, "Submission ID")}/generate_files`,
         sync: true,
         ...args,
       });
@@ -506,12 +506,12 @@ export default {
      * @param {string} opts.submissionId
      * @returns {Promise<object>} the expired submission
      */
-    expireSubmission({
+    async expireSubmission({
       submissionId, ...args
     }) {
       return this._makeRequest({
         method: "DELETE",
-        path: `/submissions/${submissionId}`,
+        path: `/submissions/${utils.pathId(submissionId, "Submission ID")}`,
         ...args,
       });
     },
@@ -533,11 +533,11 @@ export default {
      * @param {string} opts.combinedPdfId
      * @returns {Promise<object>} the combined PDF
      */
-    getCombinedPdf({
+    async getCombinedPdf({
       combinedPdfId, ...args
     }) {
       return this._makeRequest({
-        path: `/combined_pdfs/${combinedPdfId}`,
+        path: `/combined_pdfs/${utils.pathId(combinedPdfId, "Combined PDF ID")}`,
         ...args,
       });
     },
@@ -546,11 +546,11 @@ export default {
      * @param {string} opts.signatureRequestId
      * @returns {Promise<object>} the signature request
      */
-    getSignatureRequest({
+    async getSignatureRequest({
       signatureRequestId, ...args
     }) {
       return this._makeRequest({
-        path: `/signature_requests/${signatureRequestId}`,
+        path: `/signature_requests/${utils.pathId(signatureRequestId, "Signature Request ID")}`,
         ...args,
       });
     },
@@ -560,12 +560,12 @@ export default {
      * @param {string} opts.signatureRequestId
      * @returns {Promise<object>} the token
      */
-    createSignatureRequestToken({
+    async createSignatureRequestToken({
       signatureRequestId, ...args
     }) {
       return this._makeRequest({
         method: "POST",
-        path: `/signature_requests/${signatureRequestId}/tokens`,
+        path: `/signature_requests/${utils.pathId(signatureRequestId, "Signature Request ID")}/tokens`,
         ...args,
       });
     },
@@ -585,11 +585,11 @@ export default {
      * @param {string} opts.templateId
      * @returns {Promise<object>} the template
      */
-    getTemplate({
+    async getTemplate({
       templateId, ...args
     }) {
       return this._makeRequest({
-        path: `/templates/${templateId}`,
+        path: `/templates/${utils.pathId(templateId, "Template ID")}`,
         ...args,
       });
     },
@@ -612,12 +612,12 @@ export default {
      * @param {string} opts.templateId
      * @returns {Promise<object>} the template
      */
-    updateTemplateDocument({
+    async updateTemplateDocument({
       templateId, ...args
     }) {
       return this._makeRequest({
         method: "PUT",
-        path: `/templates/${templateId}/document`,
+        path: `/templates/${utils.pathId(templateId, "Template ID")}/document`,
         sync: true,
         ...args,
       });
@@ -627,12 +627,12 @@ export default {
      * @param {string} opts.templateId
      * @returns {Promise<object>} the copy
      */
-    copyTemplate({
+    async copyTemplate({
       templateId, ...args
     }) {
       return this._makeRequest({
         method: "POST",
-        path: `/templates/${templateId}/copy`,
+        path: `/templates/${utils.pathId(templateId, "Template ID")}/copy`,
         ...args,
       });
     },
@@ -641,12 +641,12 @@ export default {
      * @param {string} opts.templateId
      * @returns {Promise<object>} the template
      */
-    moveTemplate({
+    async moveTemplate({
       templateId, ...args
     }) {
       return this._makeRequest({
         method: "POST",
-        path: `/templates/${templateId}/move`,
+        path: `/templates/${utils.pathId(templateId, "Template ID")}/move`,
         ...args,
       });
     },
@@ -655,12 +655,12 @@ export default {
      * @param {string} opts.templateId
      * @returns {Promise<object>} the template version
      */
-    publishTemplateVersion({
+    async publishTemplateVersion({
       templateId, ...args
     }) {
       return this._makeRequest({
         method: "POST",
-        path: `/templates/${templateId}/publish_version`,
+        path: `/templates/${utils.pathId(templateId, "Template ID")}/publish_version`,
         ...args,
       });
     },
@@ -669,11 +669,11 @@ export default {
      * @param {string} opts.templateId
      * @returns {Promise<{template_id: string, version: string|null, fields: object[]}>}
      */
-    listTemplateFields({
+    async listTemplateFields({
       templateId, ...args
     }) {
       return this._makeRequest({
-        path: `/templates/${templateId}/fields`,
+        path: `/templates/${utils.pathId(templateId, "Template ID")}/fields`,
         ...args,
       });
     },
@@ -682,12 +682,12 @@ export default {
      * @param {string} opts.templateId
      * @returns {Promise<object>} the template's fields
      */
-    addTemplateFields({
+    async addTemplateFields({
       templateId, ...args
     }) {
       return this._makeRequest({
         method: "POST",
-        path: `/templates/${templateId}/fields`,
+        path: `/templates/${utils.pathId(templateId, "Template ID")}/fields`,
         ...args,
       });
     },
@@ -696,12 +696,12 @@ export default {
      * @param {string} opts.templateId
      * @returns {Promise<object>} the template's fields
      */
-    updateTemplateFields({
+    async updateTemplateFields({
       templateId, ...args
     }) {
       return this._makeRequest({
         method: "PUT",
-        path: `/templates/${templateId}/fields`,
+        path: `/templates/${utils.pathId(templateId, "Template ID")}/fields`,
         ...args,
       });
     },
@@ -710,12 +710,12 @@ export default {
      * @param {string} opts.templateId
      * @returns {Promise<object>} the template's remaining fields
      */
-    removeTemplateFields({
+    async removeTemplateFields({
       templateId, ...args
     }) {
       return this._makeRequest({
         method: "POST",
-        path: `/templates/${templateId}/fields/remove`,
+        path: `/templates/${utils.pathId(templateId, "Template ID")}/fields/remove`,
         ...args,
       });
     },
@@ -724,11 +724,11 @@ export default {
      * @param {string} opts.templateId
      * @returns {Promise<object>} the page images
      */
-    getTemplatePageImages({
+    async getTemplatePageImages({
       templateId, ...args
     }) {
       return this._makeRequest({
-        path: `/templates/${templateId}/page_images`,
+        path: `/templates/${utils.pathId(templateId, "Template ID")}/page_images`,
         ...args,
       });
     },
@@ -770,12 +770,12 @@ export default {
      * @param {string} opts.webhookId
      * @returns {Promise<object>} the deleted webhook
      */
-    deleteWebhook({
+    async deleteWebhook({
       webhookId, ...args
     }) {
       return this._makeRequest({
         method: "DELETE",
-        path: `/webhooks/${webhookId}`,
+        path: `/webhooks/${utils.pathId(webhookId, "Webhook ID")}`,
         ...args,
       });
     },

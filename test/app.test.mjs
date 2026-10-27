@@ -66,6 +66,174 @@ describe("hosts and headers", () => {
   });
 });
 
+describe("IDs in paths", () => {
+  // Every app method that puts an ID in the request path: [method, ID argument, path].
+  const ID_METHODS = [
+    [
+      "createSubmission",
+      "templateId",
+      "/templates/{id}/submissions",
+    ],
+    [
+      "getSubmissionBatch",
+      "submissionBatchId",
+      "/submissions/batches/{id}",
+    ],
+    [
+      "validateSubmission",
+      "templateId",
+      "/templates/{id}/submissions/validate",
+    ],
+    [
+      "getSubmission",
+      "submissionId",
+      "/submissions/{id}",
+    ],
+    [
+      "listTemplateSubmissions",
+      "templateId",
+      "/templates/{id}/submissions",
+    ],
+    [
+      "generateSubmissionFiles",
+      "submissionId",
+      "/submissions/{id}/generate_files",
+    ],
+    [
+      "expireSubmission",
+      "submissionId",
+      "/submissions/{id}",
+    ],
+    [
+      "getCombinedPdf",
+      "combinedPdfId",
+      "/combined_pdfs/{id}",
+    ],
+    [
+      "getSignatureRequest",
+      "signatureRequestId",
+      "/signature_requests/{id}",
+    ],
+    [
+      "createSignatureRequestToken",
+      "signatureRequestId",
+      "/signature_requests/{id}/tokens",
+    ],
+    [
+      "getTemplate",
+      "templateId",
+      "/templates/{id}",
+    ],
+    [
+      "updateTemplateDocument",
+      "templateId",
+      "/templates/{id}/document",
+    ],
+    [
+      "copyTemplate",
+      "templateId",
+      "/templates/{id}/copy",
+    ],
+    [
+      "moveTemplate",
+      "templateId",
+      "/templates/{id}/move",
+    ],
+    [
+      "publishTemplateVersion",
+      "templateId",
+      "/templates/{id}/publish_version",
+    ],
+    [
+      "listTemplateFields",
+      "templateId",
+      "/templates/{id}/fields",
+    ],
+    [
+      "addTemplateFields",
+      "templateId",
+      "/templates/{id}/fields",
+    ],
+    [
+      "updateTemplateFields",
+      "templateId",
+      "/templates/{id}/fields",
+    ],
+    [
+      "removeTemplateFields",
+      "templateId",
+      "/templates/{id}/fields/remove",
+    ],
+    [
+      "getTemplatePageImages",
+      "templateId",
+      "/templates/{id}/page_images",
+    ],
+    [
+      "deleteWebhook",
+      "webhookId",
+      "/webhooks/{id}",
+    ],
+  ];
+
+  it("covers every method that builds its path from an argument", () => {
+    const withIds = Object.entries(app.methods)
+      .filter(([
+        , fn,
+      ]) => /path: `/.test(fn.toString()))
+      .map(([
+        name,
+      ]) => name)
+      .sort();
+    assert.deepEqual(withIds, ID_METHODS.map(([
+      name,
+    ]) => name).sort());
+  });
+
+  for (const [
+    method,
+    arg,
+    path,
+  ] of ID_METHODS) {
+    it(`${method}: encodes the ID, so it can't reach another endpoint`, async () => {
+      await makeApp()[method]({
+        [arg]: " ../templates/tpl_abc/copy?x=1#y ",
+      });
+      const expected = path.replace("{id}", "..%2Ftemplates%2Ftpl_abc%2Fcopy%3Fx%3D1%23y");
+      assert.ok(requests[0].url.endsWith(`/api/v2${expected}`), requests[0].url);
+    });
+
+    it(`${method}: rejects a blank ID, \`.\` and \`..\` before any request`, async () => {
+      for (const id of [
+        ".",
+        "..",
+        " .. ",
+        "",
+        "  ",
+        undefined,
+      ]) {
+        await assert.rejects(makeApp()[method]({
+          [arg]: id,
+        }), /^(ConfigurationError|Error)?.*(isn't a valid .*ID|ID is required)/, `${method} with ${JSON.stringify(id)}`);
+      }
+      assert.equal(requests.length, 0);
+    });
+  }
+
+  it("names the input in the error", async () => {
+    await assert.rejects(makeApp().expireSubmission({
+      submissionId: "..",
+    }), {
+      message: "`..` isn't a valid Submission ID",
+    });
+    await assert.rejects(makeApp().getTemplate({
+      templateId: " ",
+    }), {
+      message: "Template ID is required",
+    });
+  });
+});
+
 describe("errors", () => {
   it("lists v2's code, message, details, record and request ID", async () => {
     respondInOrder(httpError(422, {
