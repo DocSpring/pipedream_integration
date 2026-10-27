@@ -155,9 +155,10 @@ second one.
   HMAC-SHA256 hex of `"{t}.{raw body}"` with the stored secret, compared in constant time with each `v1` (any match
   passes). There's no timestamp-age check. The raw body is the platform's `event.bodyRaw`, the unparsed request body
   (`SourceHttpRunOptions` in the monorepo's `types/src/index.ts`; Pipedream's own HTTP source offers it "for JSON/XML
-  verification"). The monorepo's source guidelines call it `rawBody`, but no such field exists. The `http` prop has
-  `customResponse: true`, so `run()` responds itself: 401 for a missing or wrong signature (nothing is emitted), 200
-  otherwise. A source activated before the secret was stored has none, so its deliveries aren't checked.
+  verification"). The monorepo's source guidelines say `rawBody`, but the type and the upstream sources that verify
+  signatures (Zendesk, Help Scout, Clio, Vercel) all read `bodyRaw`. The `http` prop has `customResponse: true`, so
+  `run()` responds itself: 401 for a missing or wrong signature (nothing is emitted), 200 otherwise. A source
+  activated before the secret was stored has none, so its deliveries aren't checked.
 
 ## Pipedream conventions these follow
 
