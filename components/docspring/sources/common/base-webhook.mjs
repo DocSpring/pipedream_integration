@@ -1,3 +1,4 @@
+import { ConfigurationError } from "@pipedream/platform";
 import docspring from "../../docspring.app.mjs";
 import utils from "../../common/utils.mjs";
 
@@ -20,7 +21,8 @@ export default {
       type: "string[]",
       label: "Templates",
       description: "Only emit events for these templates (their submissions, signature requests and template events), e.g. `[\"tpl_1234567890abcdef01\"]`."
-        + " Use **Find Templates** to find them (the `id` field). With templates set, only submission, signature request and template events can be chosen."
+        + " Use **Find Templates** to find them (the `id` field). Templates only filter submission, signature request and template events:"
+        + " with templates set, combined PDF, submission batch, custom file and folder events can't be chosen."
         + " Leave blank for every template.",
       optional: true,
     },
@@ -45,12 +47,22 @@ export default {
   },
   hooks: {
     async activate() {
+      const eventTypes = utils.parseStringArray(this.eventTypes);
+      const templateIds = utils.parseStringArray(this.templateIds);
+      const unfiltered = templateIds
+        ? utils.eventsTemplatesCantFilter(eventTypes)
+        : [];
+      if (unfiltered.length) {
+        // DocSpring would reject the webhook with a 422: say which events before asking it.
+        throw new ConfigurationError("Templates only filter submission, signature request and template events, so these events can't be chosen"
+          + ` with them: ${unfiltered.map((eventType) => `\`${eventType}\``).join(", ")}. Remove those events, or leave Templates blank.`);
+      }
       const webhook = await this.docspring.createWebhook({
         data: utils.compact({
           url: this.http.endpoint,
           name: "Pipedream",
-          event_types: utils.parseStringArray(this.eventTypes),
-          template_ids: utils.parseStringArray(this.templateIds),
+          event_types: eventTypes,
+          template_ids: templateIds,
           mode: this.mode,
           include_submission_data: utils.toBoolean(this.includeSubmissionData, "Include Submission Data") ?? true,
         }),

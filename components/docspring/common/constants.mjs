@@ -190,6 +190,14 @@ const EVENT_TYPE_OPTIONS = [
   },
 ];
 
+// The events a webhook's template filter applies to, by the part of the event type before the
+// dot. DocSpring rejects a webhook with templates and any other event.
+const TEMPLATE_FILTERABLE_RESOURCES = [
+  "submission",
+  "signature_request",
+  "template",
+];
+
 // Where a 504 polling_timeout or a failed record points the user, by the ID key in the error.
 const RECORD_KINDS = {
   submission_id: {
@@ -231,5 +239,6 @@ export default {
   AUTH_TYPE_OPTIONS,
   SIGNING_LINK_TYPE_OPTIONS,
   EVENT_TYPE_OPTIONS,
+  TEMPLATE_FILTERABLE_RESOURCES,
   RECORD_KINDS,
 };

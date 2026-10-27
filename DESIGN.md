@@ -147,7 +147,9 @@ second one.
   `signature_request.{viewed,completed,declined,updated}`, `combined_pdf.{processed,failed,expired}`,
   `submission_batch.{processed,failed}`, `template.{created,updated,deleted}`, `custom_file.created` and
   `folder.{created,updated,deleted}`. With templates set, DocSpring only accepts submission, signature request and
-  template events.
+  template events (`app/models/webhook.rb`, `TEMPLATE_SCOPABLE_RESOURCES`), and rejects any other with a 422. The
+  Templates help says so, and `activate()` fails with a `ConfigurationError` naming the other events before it calls
+  the API.
 - Deliveries aren't checked against `X-DocSpring-Signature`: that would mean storing the webhook's secret, and the
   integrations store only the webhook's ID.
 

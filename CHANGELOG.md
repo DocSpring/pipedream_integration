@@ -16,7 +16,7 @@ The components now use DocSpring's API v2, and webhooks send version 4 events.
 - **New Event (Instant)** emits the event as DocSpring sends it (`id`, `event_type`, `created_at`, `data`) plus
   `resource_type` and `resource_id`, for 22 events, now including submission declined and updated, signature request
   declined and updated, combined PDF expired, custom file created and folder events. It can be limited to some
-  templates, and can leave submission data out.
+  templates (for submission, signature request and template events), and can leave submission data out.
 - **Create Signature Request** has inputs for each signer: their fields (picked from the template's field names),
   role, authentication, and whether they can change prefilled values. It can make email links, API links or none.
 - **Generate PDF** adds output formats (PNG page images), field overrides, editable PDFs and a switch to return

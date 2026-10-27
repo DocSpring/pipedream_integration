@@ -11,6 +11,7 @@ const {
   SOURCE_PDF_TYPES,
   SUBMISSION_FAILURE_STATES,
   TEMPLATE_DOCUMENT_FAILURE_STATES,
+  TEMPLATE_FILTERABLE_RESOURCES,
 } = constants;
 
 /**
@@ -505,6 +506,15 @@ const signerFieldNames = (fields) => {
 };
 
 /**
+ * The chosen events that a webhook's template filter can't apply to (anything but submission,
+ * signature request and template events), in the order they were chosen.
+ * @param {string[]} [eventTypes]
+ * @returns {string[]}
+ */
+const eventsTemplatesCantFilter = (eventTypes) => (eventTypes || [])
+  .filter((eventType) => !TEMPLATE_FILTERABLE_RESOURCES.includes(String(eventType).split(".")[0]));
+
+/**
  * A version 4 webhook delivery as the source emits it: the event as delivered, plus
  * `resource_type` (the event type before the first dot) and `resource_id` (`data.id`).
  * @param {object} body
@@ -547,5 +557,6 @@ export default {
   toSourcePdf,
   documentParams,
   signerFieldNames,
+  eventsTemplatesCantFilter,
   eventOutput,
 };

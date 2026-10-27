@@ -75,6 +75,57 @@ describe("New Event (Instant)", () => {
     assert.equal(store.hookId, "whk_1");
   });
 
+  it("fails activation before any request when templates are set with events they can't filter", async () => {
+    const {
+      context, store,
+    } = makeSource({
+      eventTypes: [
+        "submission.processed",
+        "combined_pdf.processed",
+        "signature_request.completed",
+        "template.updated",
+        "submission_batch.failed",
+        "custom_file.created",
+        "folder.created",
+      ],
+      templateIds: [
+        "tpl_1",
+      ],
+    });
+    await assert.rejects(source.hooks.activate.call(context), {
+      message: "Templates only filter submission, signature request and template events, so these events can't be chosen"
+        + " with them: `combined_pdf.processed`, `submission_batch.failed`, `custom_file.created`, `folder.created`."
+        + " Remove those events, or leave Templates blank.",
+    });
+    assert.equal(requests.length, 0);
+    assert.equal(store.hookId, undefined);
+  });
+
+  it("takes any event when no templates are set", async () => {
+    respondInOrder({
+      id: "whk_1",
+    });
+    const { context } = makeSource({
+      eventTypes: [
+        "combined_pdf.processed",
+        "folder.created",
+      ],
+      templateIds: [],
+    });
+    await source.hooks.activate.call(context);
+    assert.deepEqual(requests[0].data.event_types, [
+      "combined_pdf.processed",
+      "folder.created",
+    ]);
+    assert.equal(requests[0].data.template_ids, undefined);
+  });
+
+  it("says in the Templates help which events templates can filter", () => {
+    const { description } = source.props.templateIds;
+    assert.match(description, /only filter submission, signature request and template events/);
+    assert.match(description, /combined PDF, submission batch, custom file and folder events/);
+  });
+
   it("deletes the webhook on deactivation, and treats a 404 as done", async () => {
     respondInOrder({}, httpError(404, {
       error: {
