@@ -19,8 +19,6 @@ const HOSTS = {
   },
 };
 
-const DOCS_URL = "https://docspring.com/docs/api/";
-
 // Most items a list request returns, and most options a dropdown loads.
 const MAX_PAGE_SIZE = 100;
 const MAX_PICKER_OPTIONS = 1000;
@@ -222,7 +220,6 @@ export default {
   PREVIOUS_VERSION,
   API_PATH,
   HOSTS,
-  DOCS_URL,
   MAX_PAGE_SIZE,
   MAX_PICKER_OPTIONS,
   DEFAULT_MAX_RESULTS,

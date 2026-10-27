@@ -1,9 +1,11 @@
-import { ConfigurationError } from "@pipedream/platform";
+import {
+  ConfigurationError, getFileStreamAndMetadata,
+} from "@pipedream/platform";
 import constants from "./constants.mjs";
 
 const {
   DEFAULT_MAX_RESULTS,
-  DOCS_URL,
+  MAX_BASE64_DOCUMENT_BYTES,
   PREVIOUS_VERSION,
   RECORD_KINDS,
   SOURCE_PDF_TYPES,
@@ -228,15 +230,6 @@ const folderValue = (folderId) => {
     : folderId;
 };
 
-/**
- * A link to an operation in DocSpring's API reference.
- * @param {string} tag - e.g. `submissions`
- * @param {string} method - e.g. `post`
- * @param {string} path - e.g. `/templates/{template_id}/submissions`
- * @returns {string}
- */
-const docsLink = (tag, method, path) => `${DOCS_URL}#tag/${tag}/${method}${path}`;
-
 const recordLines = (error) => Object.entries(RECORD_KINDS)
   .filter(([
     key,
@@ -421,6 +414,53 @@ const toSourcePdf = (source, index) => {
   });
 };
 
+const tooLargeMessage = (bytes) => `The PDF is ${(bytes / 1024 / 1024).toFixed(1)} MB: DocSpring takes files up to 7 MB this way.`
+  + " Use a public https:// URL for a larger PDF (up to 100 MB).";
+
+/**
+ * The request properties for a template's PDF: a public `https://` URL is sent as
+ * `document_url` for DocSpring to download; a file in `/tmp` (or another URL) is read and
+ * sent as `document_base64` with its `filename`.
+ * @param {string} document - a URL or a path in `/tmp`
+ * @param {string} [filename] - the file name to use instead of the file's own
+ * @returns {Promise<object>}
+ */
+const documentParams = async (document, filename) => {
+  const ref = isBlank(document)
+    ? ""
+    : String(document).trim();
+  if (!ref) {
+    throw new ConfigurationError("Add the PDF: a public `https://` URL, e.g. `https://example.com/form.pdf`, or a file in `/tmp`, e.g. `/tmp/form.pdf`");
+  }
+  if (/^https:\/\//i.test(ref)) {
+    return compact({
+      document_url: ref,
+      filename,
+    });
+  }
+  const {
+    stream, metadata,
+  } = await getFileStreamAndMetadata(ref);
+  if (metadata.size > MAX_BASE64_DOCUMENT_BYTES) {
+    stream.destroy();
+    throw new ConfigurationError(tooLargeMessage(metadata.size));
+  }
+  const chunks = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  const buffer = Buffer.concat(chunks);
+  if (buffer.length > MAX_BASE64_DOCUMENT_BYTES) {
+    throw new ConfigurationError(tooLargeMessage(buffer.length));
+  }
+  return {
+    document_base64: buffer.toString("base64"),
+    filename: isBlank(filename)
+      ? metadata.name || ref.split("/").pop()
+      : filename,
+  };
+};
+
 /**
  * The names a signer can be given to fill in, from a template's fields: each name once,
  * without static fields, `combined` fields or `@@` submission details, which take no value.
@@ -479,11 +519,11 @@ export default {
   compact,
   testFilter,
   folderValue,
-  docsLink,
   formatApiError,
   failureMessage,
   fileFailureMessage,
   toSourcePdf,
+  documentParams,
   signerFieldNames,
   eventOutput,
 };
