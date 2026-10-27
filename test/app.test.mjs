@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
-  app, componentsDir, constants, httpError, makeApp, requests, reset, respondInOrder,
+  app, componentsDir, constants, httpError, loadComponent, makeApp, requests, reset, respondInOrder,
 } from "./support.mjs";
 
 beforeEach(reset);
@@ -425,6 +425,165 @@ describe("errors", () => {
     }).getSubmission({
       submissionId: "sub_1",
     }), /A Self-Hosted Host is required/);
+  });
+});
+
+describe("rate limits", () => {
+  const rateLimited = (retryAfter) => httpError(429, {
+    error: {
+      code: "rate_limited",
+      message: `This account has made too many API requests. Try again in ${retryAfter} seconds (the Retry-After header).`,
+      details: [],
+      request_id: "req_429",
+    },
+  }, "Too Many Requests", retryAfter === undefined
+    ? {}
+    : {
+      "retry-after": String(retryAfter),
+    });
+
+  // The app with its sleep replaced by a recorder, so the tests don't wait.
+  const appWithSleeps = () => {
+    const sleeps = [];
+    const docspring = makeApp();
+    docspring._sleep = async (ms) => {
+      sleeps.push(ms);
+    };
+    return {
+      docspring,
+      sleeps,
+    };
+  };
+
+  it("waits for Retry-After and sends the same request again", async () => {
+    respondInOrder(rateLimited(3), {
+      id: "sub_1",
+      state: "pending",
+    });
+    const {
+      docspring, sleeps,
+    } = appWithSleeps();
+    const submission = await docspring.createSubmission({
+      templateId: "tpl_1",
+      data: {
+        data: {
+          name: "Jane",
+        },
+      },
+    });
+    assert.equal(submission.id, "sub_1");
+    assert.deepEqual(sleeps, [
+      3000,
+    ]);
+    assert.equal(requests.length, 2);
+    assert.deepEqual(requests[1], requests[0]);
+    assert.equal(requests[1].method, "POST");
+  });
+
+  it("waits at least a second when Retry-After is missing or zero", async () => {
+    respondInOrder(rateLimited(undefined), rateLimited(0), {
+      id: "sub_1",
+    });
+    const {
+      docspring, sleeps,
+    } = appWithSleeps();
+    await docspring.getSubmission({
+      submissionId: "sub_1",
+    });
+    assert.deepEqual(sleeps, [
+      1000,
+      1000,
+    ]);
+  });
+
+  it("fails at once with the API error when Retry-After doesn't fit in 20 seconds", async () => {
+    respondInOrder(rateLimited(21));
+    const {
+      docspring, sleeps,
+    } = appWithSleeps();
+    await assert.rejects(docspring.createSubmission({
+      templateId: "tpl_1",
+      data: {},
+    }), (error) => {
+      assert.match(error.message, /^DocSpring API error 429 rate_limited: This account has made too many API requests/);
+      assert.match(error.message, /Request ID: req_429$/);
+      assert.equal(error.status, 429);
+      return true;
+    });
+    assert.deepEqual(sleeps, []);
+    assert.equal(requests.length, 1);
+  });
+
+  it("stops waiting when the total would pass 20 seconds", async () => {
+    respondInOrder(rateLimited(8), rateLimited(8), rateLimited(8));
+    const {
+      docspring, sleeps,
+    } = appWithSleeps();
+    await assert.rejects(docspring.getTemplate({
+      templateId: "tpl_1",
+    }), /429 rate_limited/);
+    assert.deepEqual(sleeps, [
+      8000,
+      8000,
+    ]);
+    assert.equal(requests.length, 3);
+  });
+
+  it("doesn't retry other errors", async () => {
+    respondInOrder(httpError(503, {
+      error: {
+        code: "service_unavailable",
+        message: "Try again later",
+        details: [],
+        request_id: "req_503",
+      },
+    }, "Service Unavailable", {
+      "retry-after": "1",
+    }));
+    const {
+      docspring, sleeps,
+    } = appWithSleeps();
+    await assert.rejects(docspring.getTemplate({
+      templateId: "tpl_1",
+    }), /503 service_unavailable/);
+    assert.deepEqual(sleeps, []);
+  });
+
+  it("lets Create Signature Request make its links after a 429, or name the submission when it can't", async () => {
+    const action = await loadComponent("actions/create-signature-request/create-signature-request.mjs");
+    const run = async (...responses) => {
+      reset();
+      respondInOrder(...responses);
+      const { docspring } = appWithSleeps();
+      return action.run.call({
+        ...action.methods,
+        docspring,
+        templateId: "tpl_1",
+        numberOfSigners: 1,
+        signer1Fields: [
+          "signature",
+        ],
+        signingLinkType: "email",
+      }, {
+        $: {
+          export() {},
+        },
+      });
+    };
+    const submission = {
+      id: "sub_1",
+      signature_requests: [
+        {
+          id: "srq_1",
+          state: "pending",
+        },
+      ],
+    };
+    const result = await run(submission, rateLimited(12), {
+      signature_request_url: "https://app.docspring.com/sign/x",
+    });
+    assert.equal(result.first_signing_url, "https://app.docspring.com/sign/x");
+    await assert.rejects(run(submission, rateLimited(60)), /^Error: Created submission sub_1, but couldn't create a signing link for signature request srq_1/);
   });
 });
 

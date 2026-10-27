@@ -63,13 +63,15 @@ export const respondInOrder = (...responses) => {
  * @param {number} status
  * @param {*} data
  * @param {string} [statusText]
+ * @param {object} [headers] - the response headers, with lowercase names as Node gives them
  * @returns {Error}
  */
-export const httpError = (status, data, statusText = "") => {
+export const httpError = (status, data, statusText = "", headers = {}) => {
   const error = new Error(JSON.stringify(data));
   error.response = {
     status,
     statusText,
+    headers,
     data,
   };
   return error;

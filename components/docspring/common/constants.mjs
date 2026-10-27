@@ -21,6 +21,10 @@ const MAX_PAGE_SIZE = 100;
 const MAX_PICKER_OPTIONS = 1000;
 const DEFAULT_MAX_RESULTS = 50;
 
+// The most seconds one request waits in total for Retry-After after 429s before failing, so
+// the step stays inside Pipedream's default 30-second timeout.
+const MAX_RATE_LIMIT_WAIT_SECONDS = 20;
+
 // Largest PDF DocSpring takes as base64; a larger one needs a public https:// URL.
 const MAX_BASE64_DOCUMENT_BYTES = 7 * 1024 * 1024;
 
@@ -227,6 +231,7 @@ export default {
   MAX_PAGE_SIZE,
   MAX_PICKER_OPTIONS,
   DEFAULT_MAX_RESULTS,
+  MAX_RATE_LIMIT_WAIT_SECONDS,
   MAX_BASE64_DOCUMENT_BYTES,
   SUBMISSION_FAILURE_STATES,
   TEMPLATE_DOCUMENT_FAILURE_STATES,

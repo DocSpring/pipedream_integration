@@ -75,6 +75,13 @@ names the release, and DocSpring counts users by it in `api_logs.user_agent`.
 - A network error (no response) becomes a new `Error`: "Couldn't reach DocSpring at <base URL>: <cause>", with the
   cause's `code` (e.g. `ECONNREFUSED`). The AxiosError isn't rethrown or attached as `cause`: its `config` and
   `request` carry the Authorization header.
+- A 429 is retried in `_makeRequest`: test tokens make 5 requests a minute (burst 15), so Create Signature Request
+  (a submission plus a token call per signer) and paging can hit one. It waits `Retry-After` seconds (at least 1;
+  1 when the header is missing) and sends the same request again, as long as the waits in that call add up to no more
+  than 20 seconds (`MAX_RATE_LIMIT_WAIT_SECONDS`, inside Pipedream's default 30-second step timeout). Otherwise it
+  throws the usual API error at once, so Create Signature Request still names the submission it created. A 429 means
+  DocSpring didn't process the request, so POSTs are retried too. Other statuses (including a 503 with
+  `Retry-After`) aren't retried. Tests replace `_sleep`.
 - A 504 `polling_timeout` says which action gets the record later, and which trigger event to use
   ("The PDF wasn't ready in time. Get it later with Get Submission (sub_...), or use the submission.processed
   trigger.").

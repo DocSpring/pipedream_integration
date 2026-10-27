@@ -261,8 +261,20 @@ export default {
       };
     },
     /**
+     * Waits, so a rate-limited request can be sent again. Tests replace it.
+     * @param {number} ms
+     * @returns {Promise<void>}
+     */
+    _sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    },
+    /**
      * Sends a request to DocSpring's API v2. A failed request throws an error whose message
      * has DocSpring's error code, message, details and request ID.
+     *
+     * A 429 means DocSpring didn't process the request (test tokens make 5 requests a
+     * minute), so it's sent again after `Retry-After` seconds (at least 1), POSTs included,
+     * while the waits in this call add up to no more than 20 seconds. Then the 429 is thrown.
      * @param {object} opts
      * @param {object} [opts.$=this] - the step's context, for request logging
      * @param {string} opts.path - the path after `/api/v2`, e.g. `/submissions/sub_123`
@@ -274,41 +286,52 @@ export default {
       $ = this, path, sync = false, headers, ...args
     }) {
       const baseUrl = this._baseUrl(sync);
-      try {
-        return await axios($, {
-          url: `${baseUrl}${constants.API_PATH}${path}`,
-          headers: {
-            ...this._headers(),
-            ...headers,
-          },
-          ...args,
-        });
-      } catch (error) {
-        if (!error.response) {
-          // A network error (no response) carries the request's config and its Authorization
-          // header, so throw a new error with only the host, the cause and its code.
-          const networkError = new Error(`Couldn't reach DocSpring at ${baseUrl}: ${error.message}`);
-          if (error.code) {
-            networkError.code = error.code;
+      let waitedSeconds = 0;
+      while (true) {
+        try {
+          return await axios($, {
+            url: `${baseUrl}${constants.API_PATH}${path}`,
+            headers: {
+              ...this._headers(),
+              ...headers,
+            },
+            ...args,
+          });
+        } catch (error) {
+          if (!error.response) {
+            // A network error (no response) carries the request's config and its Authorization
+            // header, so throw a new error with only the host, the cause and its code.
+            const networkError = new Error(`Couldn't reach DocSpring at ${baseUrl}: ${error.message}`);
+            if (error.code) {
+              networkError.code = error.code;
+            }
+            throw networkError;
           }
-          throw networkError;
+          const {
+            status, statusText, headers: responseHeaders, data,
+          } = error.response;
+          if (status === 429) {
+            const wait = utils.retryAfterSeconds(responseHeaders);
+            if (waitedSeconds + wait <= constants.MAX_RATE_LIMIT_WAIT_SECONDS) {
+              waitedSeconds += wait;
+              await this._sleep(wait * 1000);
+              continue;
+            }
+          }
+          const apiError = new Error(utils.formatApiError({
+            status,
+            statusText,
+            data,
+            selfHosted: this._isSelfHosted(),
+          }));
+          apiError.status = status;
+          apiError.code = data?.error?.code;
+          apiError.response = {
+            status,
+            data,
+          };
+          throw apiError;
         }
-        const {
-          status, statusText, data,
-        } = error.response;
-        const apiError = new Error(utils.formatApiError({
-          status,
-          statusText,
-          data,
-          selfHosted: this._isSelfHosted(),
-        }));
-        apiError.status = status;
-        apiError.code = data?.error?.code;
-        apiError.response = {
-          status,
-          data,
-        };
-        throw apiError;
       }
     },
     /**

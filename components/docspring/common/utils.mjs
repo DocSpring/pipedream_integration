@@ -531,6 +531,19 @@ const headerValue = (headers, name) => {
 };
 
 /**
+ * How many seconds a 429's `Retry-After` header says to wait: a whole number of at least 1,
+ * and 1 when the header is missing or isn't a number.
+ * @param {object} [headers] - the response headers
+ * @returns {number}
+ */
+const retryAfterSeconds = (headers) => {
+  const seconds = Number(headerValue(headers, "retry-after"));
+  return Number.isFinite(seconds)
+    ? Math.max(1, Math.ceil(seconds))
+    : 1;
+};
+
+/**
  * Whether a webhook delivery's `X-DocSpring-Signature` header (`t=<timestamp>,v1=<hex>`, with
  * one or more `v1`) matches the HMAC-SHA256 of `"<t>.<raw body>"` with the webhook's secret.
  * Any matching `v1` passes; the comparison is constant-time.
@@ -617,6 +630,7 @@ export default {
   signerFieldNames,
   eventsTemplatesCantFilter,
   headerValue,
+  retryAfterSeconds,
   verifySignature,
   eventOutput,
 };
