@@ -73,6 +73,14 @@ const delivery = ({
   body: JSON.parse(RAW_BODY),
 });
 
+// A delivery of `body`, signed over its JSON text.
+const signedDelivery = (body) => ({
+  ...delivery({
+    rawBody: JSON.stringify(body),
+  }),
+  body,
+});
+
 const signedSource = () => {
   const made = makeSource();
   made.store.hookId = "whk_1";
@@ -87,6 +95,7 @@ describe("New Event (Instant)", () => {
     respondInOrder({
       id: "whk_1",
       version: 4,
+      secret: SECRET,
     });
     const {
       context, store,
@@ -148,6 +157,7 @@ describe("New Event (Instant)", () => {
   it("takes any event when no templates are set", async () => {
     respondInOrder({
       id: "whk_1",
+      secret: SECRET,
     });
     const { context } = makeSource({
       eventTypes: [
@@ -185,6 +195,25 @@ describe("New Event (Instant)", () => {
     await source.hooks.activate.call(context);
     assert.equal(store.hookId, "whk_1");
     assert.equal(store.hookSecret, SECRET);
+  });
+
+  it("deletes the webhook and fails activation when DocSpring returns no secret", async () => {
+    respondInOrder({
+      id: "whk_1",
+      secret: null,
+    }, {});
+    const {
+      context, store,
+    } = makeSource({
+      eventTypes: [
+        "submission.processed",
+      ],
+    });
+    await assert.rejects(source.hooks.activate.call(context), /without a signing secret/);
+    assert.equal(requests[1].method, "DELETE");
+    assert.equal(requests[1].url, "https://api.docspring.com/api/v2/webhooks/whk_1");
+    assert.equal(store.hookId, undefined);
+    assert.equal(store.hookSecret, undefined);
   });
 
   it("responds to deliveries itself, so it can turn away unsigned ones", () => {
@@ -292,21 +321,23 @@ describe("New Event (Instant)", () => {
     });
   }
 
-  it("skips the check for a webhook saved without a secret", async () => {
-    const {
-      context, store, emitted, responses,
-    } = makeSource();
-    store.hookId = "whk_old";
-    await source.run.call(context, delivery({
-      signature: null,
-    }));
-    assert.equal(emitted.length, 1);
-    assert.deepEqual(responses, [
-      {
-        status: 200,
-      },
-    ]);
-  });
+  for (const signature of [
+    null,
+    undefined,
+  ]) {
+    it(`drops a delivery ${signature === null ? "without" : "with"} a signature when no secret is stored, responding 401`, async () => {
+      const {
+        context, store, emitted, responses,
+      } = makeSource();
+      store.hookId = "whk_old";
+      await source.run.call(context, delivery({
+        signature,
+      }));
+      assert.equal(emitted.length, 0);
+      assert.equal(responses.length, 1);
+      assert.equal(responses[0].status, 401);
+    });
+  }
 
   it("deletes the webhook on deactivation, and treats a 404 as done", async () => {
     respondInOrder({}, httpError(404, {
@@ -354,7 +385,9 @@ describe("New Event (Instant)", () => {
   });
 
   it("emits the event as delivered plus resource_type and resource_id", async () => {
-    const { context, emitted } = makeSource();
+    const {
+      context, emitted,
+    } = signedSource();
     const body = {
       id: "6f1c2e8a-3b4d-4c5e-9f60-7a8b9c0d1e2f",
       event_type: "signature_request.completed",
@@ -365,9 +398,7 @@ describe("New Event (Instant)", () => {
         created_at: "2026-06-26T00:00:00Z",
       },
     };
-    await source.run.call(context, {
-      body,
-    });
+    await source.run.call(context, signedDelivery(body));
     assert.deepEqual(emitted, [
       {
         event: {
@@ -385,13 +416,11 @@ describe("New Event (Instant)", () => {
   });
 
   it("rejects a delivery with no event id", async () => {
-    const { context } = makeSource();
-    await assert.rejects(source.run.call(context, {
-      body: {
-        event_type: "submission.processed",
-        data: {},
-      },
-    }), /has no event `id`/);
+    const { context } = signedSource();
+    await assert.rejects(source.run.call(context, signedDelivery({
+      event_type: "submission.processed",
+      data: {},
+    })), /has no event `id`/);
   });
 
   it("has a sample event in the emitted shape", () => {

@@ -792,6 +792,7 @@ describe("templates", async () => {
       html: "<h1>{{ name }}</h1>",
       scss: "h1 { color: red; }",
       footerHtml: "<p>1</p>",
+      detectFields: false,
       wait: false,
     });
     assert.deepEqual(requests[0].params, {
@@ -818,6 +819,12 @@ describe("templates", async () => {
       templateType: "html",
       document: "https://example.com/a.pdf",
     }), /PDF File or URL only apply to PDF templates/);
+    await assert.rejects(runAction(createTemplate, {
+      name: "x",
+      templateType: "html",
+      html: "<p></p>",
+      detectFields: true,
+    }), /Detect Fields only apply to PDF templates/);
     await assert.rejects(runAction(createTemplate, {
       name: "x",
       document: "https://example.com/a.pdf",
