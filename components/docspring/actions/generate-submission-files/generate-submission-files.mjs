@@ -56,6 +56,7 @@ export default {
         docspring,
         "wait",
       ],
+      label: "Wait for the Files",
       description: "`true` (the default) waits until the files are ready. `false` returns at once: check the file's `state` later with **Get Submission**. e.g. `true`.",
     },
   },
@@ -64,7 +65,7 @@ export default {
     if (!formats) {
       throw new ConfigurationError("Choose at least one format, e.g. `png`");
     }
-    const wait = utils.toBoolean(this.wait, "Wait for the PDF") ?? true;
+    const wait = utils.toBoolean(this.wait, "Wait for the Files") ?? true;
     const submission = await this.docspring.generateSubmissionFiles({
       $,
       submissionId: this.submissionId,
