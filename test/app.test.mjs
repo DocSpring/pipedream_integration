@@ -563,6 +563,7 @@ describe("rate limits", () => {
         signer1Fields: [
           "signature",
         ],
+        sendEmail: "self",
         signingLinkType: "email",
       }, {
         $: {

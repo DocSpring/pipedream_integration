@@ -435,7 +435,9 @@ describe("New Event (Instant)", () => {
 
   it("offers every version 4 event except webhook.*", () => {
     const values = constants.EVENT_TYPE_OPTIONS.map((option) => option.value);
-    assert.equal(values.length, 22);
+    assert.equal(values.length, 24);
+    assert.ok(values.includes("signature_request.sent"));
+    assert.ok(values.includes("signature_request.email_bounced"));
     assert.ok(values.every((value) => !value.startsWith("webhook.")));
     assert.ok(values.every((value) => !/data_request|combined_submission/.test(value)));
     assert.ok(constants.EVENT_TYPE_OPTIONS.every((option) => option.label && option.value));
