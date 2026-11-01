@@ -912,7 +912,43 @@ describe("submission and signature request lookups", async () => {
     assert.equal(check.summary, "The data isn't valid for template tpl_1: 2 problem(s)");
   });
 
-  it("generates png files on the sync host and fails when one fails", async () => {
+  it("offers a Word template's Word document and OpenDocument file wherever it asks for formats", async () => {
+    const { constants } = await import("./support.mjs");
+    assert.deepEqual(constants.OUTPUT_FORMAT_OPTIONS.map((option) => option.value), [
+      "pdf",
+      "docx",
+      "odt",
+      "png",
+    ]);
+    const generateFiles = await action("generate-submission-files");
+    assert.deepEqual(generateFiles.props.formats.options.map((option) => option.value), [
+      "png",
+      "pdf",
+      "docx",
+      "odt",
+    ]);
+    respondInOrder({
+      id: "sub_1",
+      files: {
+        docx: {
+          state: "processed",
+        },
+      },
+    });
+    await runAction(generateFiles, {
+      submissionId: "sub_1",
+      formats: [
+        "docx",
+      ],
+    });
+    assert.deepEqual(requests[0].data, {
+      formats: [
+        "docx",
+      ],
+    });
+  });
+
+    it("generates png files on the sync host and fails when one fails", async () => {
     const generateFiles = await action("generate-submission-files");
     respondInOrder({
       id: "sub_1",

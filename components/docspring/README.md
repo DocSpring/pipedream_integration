@@ -1,6 +1,6 @@
 # Overview
 
-DocSpring fills in PDF templates with your data, generates PDFs from HTML, and collects e-signatures. With these components you can generate PDFs (one at a time or in batches), combine PDFs, send documents out for signature, and manage templates, their fields and folders. The **New Event (Instant)** source starts a workflow when a PDF is ready, a signer completes a signature request, or a template changes.
+DocSpring fills PDF forms, Word documents and HTML templates with your data and collects e-signatures, all with one API. With these components you can generate PDFs (one at a time or in batches), combine PDFs, send documents out for signature, and manage templates, their fields and folders. The **New Event (Instant)** source starts a workflow when a PDF is ready, a signer completes a signature request, or a template changes.
 
 The components use [DocSpring's API v2](https://docspring.com/docs/api/). Self-hosted DocSpring servers need the release that has API v2.
 
