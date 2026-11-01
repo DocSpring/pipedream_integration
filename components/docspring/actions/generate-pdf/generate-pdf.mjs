@@ -60,6 +60,8 @@ export default {
         docspring,
         "password",
       ],
+      description: "A password the PDF needs to be opened with, e.g. `s3cret-pass`. It's never returned."
+        + " A submission with a password can't make a Word document or OpenDocument file.",
     },
     expiresIn: {
       propDefinition: [

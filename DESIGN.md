@@ -11,8 +11,9 @@ All of them call **DocSpring API v2** (`/api/v2`) and create **version 4** webho
 
 ```
 docspring.app.mjs          # auth, hosts, User-Agent, errors, paging, pickers, one method per API operation
-common/constants.mjs       # version, hosts, limits, failure states, dropdown options, the 22 webhook events
+common/constants.mjs       # version, hosts, limits, failure states, dropdown options, the 24 webhook events
 common/utils.mjs           # pure helpers: input parsing, request cleaning, error messages, event output
+common/signer-emails.mjs   # Emails to Signers, Signing Order and DocSpring's email options (Create Signature Request, Check Data)
 actions/<name>/<name>.mjs  # 27 actions, key docspring-<name>
 sources/common/base-webhook.mjs
 sources/new-event/         # New Event (Instant) and its sample event
@@ -36,7 +37,7 @@ an account can connect (PipedreamHQ/pipedream#21948). The registration's connect
 | Self-hosted | the custom host        | the custom host            |
 
 A custom host without a scheme gets `https://`. The operations that make a file use the sync host with
-`?wait=true`, or `wait=false` when **Wait for the PDF** is off: Generate PDF, Generate PDFs in a Batch, Combine PDFs,
+`?wait=true`, or `wait=false` when **Wait for the PDF** (**Wait for the Files** in Generate Submission Files) is off: Generate PDF, Generate PDFs in a Batch, Combine PDFs,
 Generate Submission Files, Create Template and Replace Template PDF. Everything else, including Create Signature
 Request, uses the standard host.
 
@@ -67,7 +68,8 @@ names the release, and DocSpring counts users by it in `api_logs.user_agent`.
 ## Responses and errors
 
 - Actions return the v2 resource as the API returns it. The only additions are Create Signature Request's
-  `signature_requests[].signing_url`, `first_signature_request_id` and `first_signing_url`.
+  `signature_requests[].signing_url` (null for the signers DocSpring emails), `first_signature_request_id` and
+  `first_signing_url`.
 - `_makeRequest` turns an HTTP error into
   `DocSpring API error <status> <code>: <message>`, then one line per detail (`<pointer or parameter>: <message>`), the
   record (`Submission: sub_...`, `Combined PDF: ...`, `Submission batch: ...`, `Template: ...`) and
@@ -97,13 +99,13 @@ names the release, and DocSpring counts users by it in `api_logs.user_agent`.
 
 | Action | v2 operation | Notes |
 | --- | --- | --- |
-| Generate PDF | `POST /templates/{id}/submissions` (sync) | version, data, test, metadata, output formats, password, expires in, field overrides, editable, wait |
+| Generate PDF | `POST /templates/{id}/submissions` (sync) | version, data, test, metadata, output formats (`pdf`, `png`, and a Word template's `docx` and `odt`), password, expires in, field overrides, editable, wait |
 | Generate PDFs in a Batch | `POST /submissions/batches` (sync) | submissions as JSON; batch-level template, `template_version`, test, metadata, output formats |
 | Get Submission Batch | `GET /submissions/batches/{id}` | include data |
-| Check Data | `POST /templates/{id}/submissions/validate` | data, test, optional signature requests as JSON; returns `valid` without throwing |
+| Check Data | `POST /templates/{id}/submissions/validate` | data, test, optional signature requests as JSON with Emails to Signers, Signing Order and DocSpring's email options (sent only with signature requests); returns `valid` without throwing |
 | Get Submission | `GET /submissions/{id}` | |
 | Find Submissions | `GET /submissions` or `GET /templates/{id}/submissions` | live / test / any, created after / before, include data |
-| Generate Submission Files | `POST /submissions/{id}/generate_files` (sync) | `png` |
+| Generate Submission Files | `POST /submissions/{id}/generate_files` (sync) | `png`, or `pdf`, `docx` and `odt` for a Word template's submission |
 | Expire Submission | `DELETE /submissions/{id}` | destructive |
 | Combine PDFs | `POST /combined_pdfs` (sync) | sources as JSON; `template_version` and `processed` only on `template` sources |
 | Get Combined PDF | `GET /combined_pdfs/{id}` | |
@@ -139,8 +141,18 @@ field names (from `GET /templates/{id}/fields?version=`, without static and `com
 when the template can't be read at setup time (its ID comes from an earlier step), the names are typed in. Every
 signer needs fields, `oauth` needs a provider, and either every signer has a role or none does.
 
-After creating the submission, the action makes a signing link of the chosen type (`email`, `api` or `none`) for
-each pending signature request. If one fails, the error names the submission so the step isn't rerun to make a
+**Emails to Signers** (with `reloadProps`) is always sent as `send_email`. `docspring` (the default, `true`):
+DocSpring emails each signer a link to sign, any reminders and the signed PDF, and `additionalProps()` adds its email
+options (subject, message, CC, reminders, reply-to, notification emails, notify when signed); blank ones are left
+out, and CC and notification addresses are sent once each, as the API refuses blank text and repeats. `self`
+(`false`): you send the links; the email options are left out (the API refuses them when it emails nobody) and
+**Signing Link Type** is offered instead. A mode `additionalProps()` can't read yet (an expression) shows DocSpring's
+options; `run()` refuses it. **Signing Order** (`parallel` or `sequential`) and each signer's **Signing Step** are
+sent either way.
+
+With `self`, after creating the submission the action makes a signing link of the chosen type (`email`, `api` or
+`none`) for each pending signature request. With DocSpring's emails it makes none: each `signing_url` is null, so a
+workflow can't send a second email. If a link fails, the error names the submission so the step isn't rerun to make a
 second one.
 
 ## Source: New Event (Instant)

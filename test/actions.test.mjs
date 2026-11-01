@@ -485,7 +485,7 @@ describe("Create Signature Request", async () => {
     assert.equal(result.first_signing_url, null);
   });
 
-  it("sends DocSpring's email options, the signing order and each signer's step, leaving out blank ones", async () => {
+  it("sends DocSpring's email options, the signing order and each signer's step, leaving out blank ones and repeated addresses", async () => {
     respondInOrder(created);
     await runAction(createSignatureRequest, {
       templateId: "tpl_1",
@@ -497,13 +497,17 @@ describe("Create Signature Request", async () => {
       cc: [
         "records@example.com",
         "",
+        "records@example.com",
       ],
       reminderIntervalDays: 3,
       reminderMaxCount: "2",
       replyTo: "",
-      notificationEmails: [],
+      notificationEmails: [
+        "ops@example.com",
+        "ops@example.com",
+      ],
       notifyWhenSigned: true,
-      signer1Email: "jane@example.com",
+      signer1Email: " jane@example.com ",
       signer1Fields: [
         "a",
       ],
@@ -543,6 +547,9 @@ describe("Create Signature Request", async () => {
         interval_days: 3,
         max_count: 2,
       },
+      notification_emails: [
+        "ops@example.com",
+      ],
       notify_when_signed: true,
     });
   });
@@ -652,12 +659,30 @@ describe("Create Signature Request", async () => {
     assert.equal(createSignatureRequest.props.sendEmail.default, "docspring");
     assert.equal(createSignatureRequest.props.sendEmail.reloadProps, true);
   });
+
+  it("shows DocSpring's email options while Emails to Signers can't be read yet, and refuses it when the step runs", async () => {
+    const props = await createSignatureRequest.additionalProps.call({
+      sendEmail: "{{steps.mode.$return_value}}",
+      numberOfSigners: 1,
+      docspring: (await import("./support.mjs")).makeApp(),
+    });
+    assert.ok(props.emailSubject);
+    assert.equal(props.signingLinkType, undefined);
+    await assert.rejects(runAction(createSignatureRequest, {
+      templateId: "tpl_1",
+      sendEmail: "{{steps.mode.$return_value}}",
+      signer1Email: "jane@example.com",
+      signer1Fields: [
+        "a",
+      ],
+    }), /Emails to Signers/);
+  });
 });
 
 describe("Check Data", async () => {
   const checkData = await action("check-data");
 
-  it("checks the email settings Create Signature Request sends, only with signers, leaving out blank signer values", async () => {
+  it("checks the email settings Create Signature Request sends, only with signers, leaving out blank signer values and trimming emails", async () => {
     respondInOrder({
       valid: true,
     }, {
@@ -672,7 +697,7 @@ describe("Check Data", async () => {
       reminderIntervalDays: 3,
       reminderMaxCount: 2,
       signatureRequests: [
-        "{\"fields\": [\"a\"], \"email\": \"jane@example.com\", \"name\": \"\"}",
+        "{\"fields\": [\"a\"], \"email\": \" jane@example.com \", \"name\": \"\"}",
       ],
     });
     assert.deepEqual(requests[0].data, {
@@ -726,6 +751,9 @@ describe("Check Data", async () => {
     assert.deepEqual(await checkData.additionalProps.call({
       sendEmail: "self",
     }), {});
+    assert.ok((await checkData.additionalProps.call({
+      sendEmail: "{{steps.mode.$return_value}}",
+    })).emailSubject);
   });
 });
 

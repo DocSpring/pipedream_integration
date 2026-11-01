@@ -89,7 +89,7 @@ export default {
       }
     }
     const props = {};
-    if (signerEmails.emailMode(this.sendEmail) === "docspring") {
+    if (signerEmails.propsEmailMode(this.sendEmail) === "docspring") {
       Object.assign(props, signerEmails.emailOptionProps());
     } else {
       // DocSpring's emails have their own links: a link here would let a workflow send each
@@ -197,7 +197,7 @@ export default {
         }
         signatureRequests.push(utils.compact({
           name: this[`signer${i}Name`],
-          email: this[`signer${i}Email`],
+          email: signerEmails.text(this[`signer${i}Email`]),
           role: this[`signer${i}Role`],
           fields,
           auth_type: authType,

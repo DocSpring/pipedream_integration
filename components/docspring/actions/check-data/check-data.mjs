@@ -56,18 +56,27 @@ export default {
       description: "With **Signature Requests**: who sends the signers their links, as in **Create Signature Request**. "
         + signerEmails.sendEmailProp.description,
     },
-    signingOrder: signerEmails.signingOrderProp,
+    signingOrder: {
+      ...signerEmails.signingOrderProp,
+      description: "`parallel` (the default): everyone can sign at once. `sequential`: people sign one step at a time, in the order of each signature request's `signing_step`, or of the list."
+        + " Applies only with **Signature Requests**. e.g. `sequential`.",
+    },
   },
   async additionalProps() {
-    return signerEmails.emailMode(this.sendEmail) === "docspring"
+    return signerEmails.propsEmailMode(this.sendEmail) === "docspring"
       ? signerEmails.emailOptionProps()
       : {};
   },
   async run({ $ }) {
     // A blank value (`"email": ""` from an empty mapped field) is left out: the API refuses
-    // blank text.
+    // blank text. An email is trimmed, as in Create Signature Request.
     const signatureRequests = utils.parseObjectArray(this.signatureRequests, "Signature Requests")
-      ?.map((request) => utils.compact(request));
+      ?.map((request) => utils.compact({
+        ...request,
+        email: typeof request.email === "string"
+          ? request.email.trim()
+          : request.email,
+      }));
     // The email settings only go with signers: the API refuses them without.
     const settings = signatureRequests
       ? signerEmails.emailSettings(this)

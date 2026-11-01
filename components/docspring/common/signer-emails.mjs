@@ -20,9 +20,9 @@ const sendEmailProp = {
   type: "string",
   label: "Emails to Signers",
   description: "`docspring` (the default): DocSpring emails each signer a link to sign, any reminders, and the signed PDF once everyone has signed."
-    + " Each signer then needs an email address and the `email_link` authentication. A test submission only emails members of your DocSpring team."
+    + " Each signer then needs an email address and the `email_link` authentication. A test submission can only email members of your DocSpring team: other addresses are refused."
     + " `self`: you send the links, or people sign in your app."
-    + " DocSpring doesn't email the signers of a form library template: choose `self` for one.",
+    + " DocSpring doesn't email the signers of a form library template: choose `self` for one. e.g. `docspring`.",
   options: SEND_EMAIL_OPTIONS,
   default: "docspring",
   optional: true,
@@ -33,7 +33,8 @@ const signingOrderProp = {
   type: "string",
   label: "Signing Order",
   description: "`parallel` (the default): everyone can sign at once. `sequential`: people sign one step at a time, in the order of their **Signing Step**, or of the signers."
-    + " DocSpring emails each step when the one before it is done; when you send the links, send each step's once the step before it has signed.",
+    + " DocSpring emails each step when the one before it is done. When you send the links, send each step's once the step before it has signed,"
+    + " and make a new one with **Create Signing Link** if it has expired (email links last 7 days, API links 24 hours). e.g. `sequential`.",
   options: [
     {
       label: "Everyone at once",
@@ -63,7 +64,7 @@ const emailOptionProps = () => ({
   emailMessage: {
     type: "string",
     label: "Message",
-    description: "A message for the signers, shown above the signing button. Links and web addresses are shown as plain text.",
+    description: "A message for the signers, shown above the signing button, e.g. `Please sign by Friday.` Links and web addresses are shown as plain text.",
     optional: true,
   },
   cc: {
@@ -91,7 +92,7 @@ const emailOptionProps = () => ({
   replyTo: {
     type: "string",
     label: "Reply-To Address",
-    description: "Where replies to the emails go: a member of your DocSpring team, or an address at one of your verified email domains."
+    description: "Where replies to the emails go: a member of your DocSpring team, or an address at one of your verified email domains, e.g. `legal@example.com`."
       + " Leave blank for the template's reply-to address (the account owner when it has none).",
     optional: true,
   },
@@ -99,14 +100,14 @@ const emailOptionProps = () => ({
     type: "string[]",
     label: "Notification Emails",
     description: "Up to 10 addresses that DocSpring tells when the document is completed or declined, or an email bounces or can't be sent:"
-      + " members of your DocSpring team or addresses at your verified email domains."
+      + " members of your DocSpring team or addresses at your verified email domains, e.g. `ops@example.com`."
       + " Leave blank for the template's notification addresses (the account owner when it has none).",
     optional: true,
   },
   notifyWhenSigned: {
     type: "boolean",
     label: "Notify When Each Person Signs",
-    description: "`true` also emails the notification addresses each time someone signs.",
+    description: "`true` also emails the notification addresses each time someone signs, e.g. `true`.",
     optional: true,
   },
 });
@@ -134,6 +135,32 @@ const emailMode = (value) => {
 };
 
 /**
+ * The mode for choosing which props to show. A value `emailMode` refuses (such as an
+ * expression that isn't evaluated yet) shows DocSpring's options: `run` reports the error.
+ * @param {*} value
+ * @returns {string}
+ */
+const propsEmailMode = (value) => {
+  try {
+    return emailMode(value);
+  } catch {
+    return "docspring";
+  }
+};
+
+/**
+ * A list of email addresses, each once: the API refuses a list with repeats.
+ * @param {*} value
+ * @returns {string[]|undefined}
+ */
+const addresses = (value) => {
+  const list = utils.parseStringArray(value);
+  return list && [
+    ...new Set(list),
+  ];
+};
+
+/**
  * The submission's email settings for the request body: `send_email`, the signing order
  * and, only when DocSpring emails the signers, the email options that have a value (the
  * API refuses blank ones).
@@ -155,7 +182,7 @@ const emailSettings = (component) => {
     ...settings,
     email_subject: text(component.emailSubject),
     email_message: text(component.emailMessage),
-    cc: utils.parseStringArray(component.cc),
+    cc: addresses(component.cc),
     // The API needs both: one alone gets its 422, which names the other.
     reminders: intervalDays === undefined && maxCount === undefined
       ? undefined
@@ -164,7 +191,7 @@ const emailSettings = (component) => {
         max_count: maxCount,
       }),
     reply_to: text(component.replyTo),
-    notification_emails: utils.parseStringArray(component.notificationEmails),
+    notification_emails: addresses(component.notificationEmails),
     notify_when_signed: utils.toBoolean(component.notifyWhenSigned, "Notify When Each Person Signs"),
   });
 };
@@ -175,5 +202,7 @@ export default {
   signingOrderProp,
   emailOptionProps,
   emailMode,
+  propsEmailMode,
   emailSettings,
+  text,
 };
