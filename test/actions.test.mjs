@@ -682,7 +682,7 @@ describe("Create Signature Request", async () => {
 describe("Check Data", async () => {
   const checkData = await action("check-data");
 
-  it("checks the email settings Create Signature Request sends, only with signers, leaving out blank signer values and trimming emails", async () => {
+  it("checks the email settings Create Signature Request sends, only with signers, leaving out blank signer values, trimming emails and defaulting auth_type", async () => {
     respondInOrder({
       valid: true,
     }, {
@@ -708,6 +708,7 @@ describe("Check Data", async () => {
             "a",
           ],
           email: "jane@example.com",
+          auth_type: "email_link",
         },
       ],
       send_email: true,
@@ -722,7 +723,7 @@ describe("Check Data", async () => {
       templateId: "tpl_1",
       sendEmail: "self",
       emailSubject: "Left over",
-      signatureRequests: "[{\"fields\": [\"a\"], \"auth_type\": \"password\", \"email\": \"\"}]",
+      signatureRequests: "[{\"fields\": [\"a\"], \"auth_type\": \"password\", \"email\": \"\"}, {\"fields\": [\"b\"], \"auth_type\": \"\"}]",
     });
     assert.deepEqual(requests[1].data, {
       data: {},
@@ -732,6 +733,12 @@ describe("Check Data", async () => {
             "a",
           ],
           auth_type: "password",
+        },
+        {
+          fields: [
+            "b",
+          ],
+          auth_type: "email_link",
         },
       ],
       send_email: false,

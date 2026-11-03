@@ -30,7 +30,8 @@ published; the list below is what changed from it.
   has signed, and you can set the subject, a message, CC addresses, reminders, the reply-to address, notification
   emails and a notification each time someone signs; or you send the links yourself, and the action makes email
   links, API links or none. **Signing Order**: everyone at once, or one step at a time.
-- **Check Data** checks signature requests with the same email settings.
+- **Check Data** checks signature requests with the same email settings, and defaults each one's `auth_type` to
+  `email_link`, as Create Signature Request does.
 - **Generate PDF** adds output formats (PNG page images, and a Word template's Word document and OpenDocument file),
   field overrides, editable PDFs and a switch to return without waiting for the PDF. Generate PDFs in a Batch and
   Generate Submission Files make the same formats.

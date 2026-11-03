@@ -46,7 +46,8 @@ export default {
     signatureRequests: {
       type: "string[]",
       label: "Signature Requests",
-      description: "Optional signers to check with the data, as **Create Signature Request** would send them. Each item is a JSON object with `fields` and `auth_type`,"
+      description: "Optional signers to check with the data, as **Create Signature Request** would send them. Each item is a JSON object with `fields`"
+        + " and an `auth_type` (`email_link` when left out),"
         + " e.g. `{\"name\": \"Jane Doe\", \"email\": \"jane@example.com\", \"fields\": [\"tenant_signature\"], \"auth_type\": \"email_link\"}`."
         + " Empty values are left out.",
       optional: true,
@@ -69,13 +70,18 @@ export default {
   },
   async run({ $ }) {
     // A blank value (`"email": ""` from an empty mapped field) is left out: the API refuses
-    // blank text. An email is trimmed, as in Create Signature Request.
+    // blank text. As in Create Signature Request, an email is trimmed and `auth_type` defaults
+    // to `email_link` (the API requires it when you send the links yourself).
     const signatureRequests = utils.parseObjectArray(this.signatureRequests, "Signature Requests")
       ?.map((request) => utils.compact({
         ...request,
         email: typeof request.email === "string"
           ? request.email.trim()
           : request.email,
+      }))
+      .map((request) => ({
+        ...request,
+        auth_type: request.auth_type ?? "email_link",
       }));
     // The email settings only go with signers: the API refuses them without.
     const settings = signatureRequests
