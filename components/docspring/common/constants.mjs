@@ -42,7 +42,8 @@ const TEMPLATE_DOCUMENT_FAILURE_STATES = [
   "download_failed",
 ];
 
-// Word documents and OpenDocument files come only from Word templates: the API refuses them for others.
+// Word documents and OpenDocument files come only from Word templates: the API refuses them
+// for other templates.
 const OUTPUT_FORMAT_OPTIONS = [
   {
     label: "PDF",

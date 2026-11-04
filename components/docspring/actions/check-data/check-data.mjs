@@ -54,11 +54,13 @@ export default {
     },
     sendEmail: {
       ...signerEmails.sendEmailProp,
+      label: signerEmails.sendEmailProp.label,
       description: "With **Signature Requests**: who sends the signers their links, as in **Create Signature Request**. "
         + signerEmails.sendEmailProp.description,
     },
     signingOrder: {
       ...signerEmails.signingOrderProp,
+      label: signerEmails.signingOrderProp.label,
       description: "`parallel` (the default): everyone can sign at once. `sequential`: people sign one step at a time, in the order of each signature request's `signing_step`, or of the list."
         + " Applies only with **Signature Requests**. e.g. `sequential`.",
     },
