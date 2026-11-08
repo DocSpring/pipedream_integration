@@ -18,6 +18,8 @@ published; the list below is what changed from it.
   24 hours.
 - **IDs only name one record:** each ID that goes into a request's path is encoded, and a blank ID, `.` or `..`
   fails before any request is made.
+- **Errors list each problem once:** an API error shows its code and message, then a line for each detail the
+  message doesn't already name, and the request ID.
 - **New Event (Instant)** emits the event as DocSpring sends it (`id`, `event_type`, `created_at`, `data`) plus
   `resource_type` and `resource_id`, for 24 events, now including submission declined and updated, signature request
   declined, updated, sent (DocSpring first emailed someone their link) and email bounced, combined PDF expired, custom

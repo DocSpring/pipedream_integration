@@ -266,7 +266,7 @@ describe("errors", () => {
     }), (error) => {
       assert.equal(error.message, [
         "DocSpring API error 422 invalid_data: The data doesn't match the template's fields: /data/last_name is required",
-        "/data/last_name: is required",
+        // The message already names /data/last_name, so it gets no line of its own.
         "version: isn't a version",
         "the request as a whole",
         "Submission: sub_1",
@@ -275,6 +275,87 @@ describe("errors", () => {
       assert.equal(error.status, 422);
       assert.equal(error.code, "invalid_data");
       assert.equal(error.response.status, 422);
+      return true;
+    });
+  });
+
+  it("leaves out the details the message already lists, as API v2's summary writes them", async () => {
+    const message = "Invalid request: /data/a is required; wait must be a boolean; "
+      + "the request body isn't valid JSON (and 2 more)";
+    respondInOrder(httpError(422, {
+      error: {
+        code: "invalid_request",
+        message,
+        details: [
+          {
+            code: "required",
+            message: "is required",
+            pointer: "/data/a",
+          },
+          {
+            code: "type",
+            message: "must be a boolean",
+            parameter: "wait",
+          },
+          {
+            code: "invalid",
+            message: "isn't valid JSON",
+            pointer: "",
+          },
+          {
+            code: "required",
+            message: "is required",
+            pointer: "/data/d",
+          },
+          {
+            code: "required",
+            message: "is required",
+            pointer: "/data/e",
+          },
+        ],
+        request_id: "req_1",
+      },
+    }));
+    await assert.rejects(makeApp().createSubmission({
+      templateId: "tpl_1",
+      data: {},
+    }), (error) => {
+      assert.equal(error.message, [
+        `DocSpring API error 422 invalid_request: ${message}`,
+        "/data/d: is required",
+        "/data/e: is required",
+        "Request ID: req_1",
+      ].join("\n"));
+      return true;
+    });
+  });
+
+  it("keeps a listed detail's line when it adds a batch's submission ID", async () => {
+    respondInOrder(httpError(422, {
+      error: {
+        code: "invalid_data",
+        message: "No PDFs were generated: 1 of 2 submissions is invalid: /submissions/1/data/a is required",
+        details: [
+          {
+            code: "required",
+            message: "is required",
+            pointer: "/submissions/1/data/a",
+            submission_id: "sub_2",
+          },
+        ],
+        request_id: "req_1",
+        submission_batch_id: "sbb_1",
+      },
+    }));
+    await assert.rejects(makeApp().createSubmission({
+      templateId: "tpl_1",
+      data: {},
+    }), (error) => {
+      assert.deepEqual(error.message.split("\n").slice(1), [
+        "/submissions/1/data/a: is required (submission sub_2)",
+        "Submission batch: sbb_1",
+        "Request ID: req_1",
+      ]);
       return true;
     });
   });
