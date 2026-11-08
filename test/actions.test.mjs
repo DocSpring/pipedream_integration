@@ -554,6 +554,43 @@ describe("Create Signature Request", async () => {
     });
   });
 
+  it("sends [[ signer.name ]] and DocSpring's other variables as {{ }}, which Pipedream would read as its own expressions", async () => {
+    respondInOrder(created);
+    await runAction(createSignatureRequest, {
+      templateId: "tpl_1",
+      numberOfSigners: 1,
+      emailSubject: "Please sign, [[ signer.name ]]",
+      emailMessage: "Hi [[signer.name]] ([[ signer.email ]]), [[ sender.name ]] at [[ account.name ]] sent"
+        + " [[ document.name ]]. Keep [[ this ]] and [[ signer.nmae ]].",
+      signer1Email: "jane@example.com",
+      signer1Fields: [
+        "a",
+      ],
+    });
+    assert.equal(requests[0].data.email_subject, "Please sign, {{ signer.name }}");
+    assert.equal(requests[0].data.email_message,
+      "Hi {{ signer.name }} ({{ signer.email }}), {{ sender.name }} at {{ account.name }} sent"
+        + " {{ document.name }}. Keep [[ this ]] and [[ signer.nmae ]].");
+  });
+
+  it("tells people to type the variables in square brackets", async () => {
+    const props = await createSignatureRequest.additionalProps.call({
+      sendEmail: "docspring",
+      numberOfSigners: 1,
+      docspring: (await import("./support.mjs")).makeApp(),
+    });
+    for (const prop of [
+      props.emailSubject,
+      props.emailMessage,
+    ]) {
+      assert.match(prop.description, /`\[\[ signer\.name \]\]`/);
+      assert.match(prop.description, /`\[\[ account\.name \]\]`/);
+      assert.match(prop.description, /Pipedream reads `\{\{ \}\}` as its own expression/);
+      // Markdown drops anything that looks like an HTML tag.
+      assert.doesNotMatch(prop.description, /<[a-z]/i);
+    }
+  });
+
   it("leaves out DocSpring's email options when you send the links, which the API refuses then", async () => {
     respondInOrder(created);
     await runAction(createSignatureRequest, {
@@ -693,7 +730,7 @@ describe("Check Data", async () => {
     await runAction(checkData, {
       templateId: "tpl_1",
       signingOrder: "sequential",
-      emailSubject: "Please sign",
+      emailSubject: "Please sign, [[ signer.name ]]",
       reminderIntervalDays: 3,
       reminderMaxCount: 2,
       signatureRequests: [
@@ -713,7 +750,7 @@ describe("Check Data", async () => {
       ],
       send_email: true,
       signing_order: "sequential",
-      email_subject: "Please sign",
+      email_subject: "Please sign, {{ signer.name }}",
       reminders: {
         interval_days: 3,
         max_count: 2,

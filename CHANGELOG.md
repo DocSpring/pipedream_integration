@@ -32,6 +32,10 @@ published; the list below is what changed from it.
   has signed, and you can set the subject, a message, CC addresses, reminders, the reply-to address, notification
   emails and a notification each time someone signs; or you send the links yourself, and the action makes email
   links, API links or none. **Signing Order**: everyone at once, or one step at a time.
+- **DocSpring's email variables go in square brackets:** the subject and message take `[[ signer.name ]]`,
+  `[[ signer.email ]]`, `[[ document.name ]]`, `[[ sender.name ]]` and `[[ account.name ]]`, and send them to
+  DocSpring as `{{ signer.name }}` and so on, since Pipedream reads `{{ }}` in a prop as its own expression. Other text
+  in square brackets is sent as typed. Check Data sends them the same way.
 - **Check Data** checks signature requests with the same email settings, and defaults each one's `auth_type` to
   `email_link`, as Create Signature Request does.
 - **Generate PDF** adds output formats (PNG page images, and a Word template's Word document and OpenDocument file),
