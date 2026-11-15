@@ -9,7 +9,9 @@ published; the list below is what changed from it.
 - **Self-hosted DocSpring servers need a release with API v2 that emails signers.** On a server without API v2, every
   action says to upgrade it; on one with API v2 but an older release, Create Signature Request, and Check Data with
   signature requests, fail because the server refuses `send_email`.
-- **Renamed:** Find Template is **Find Templates** and Find Submission is **Find Submissions** (getting one
+- **Renamed:** Generate PDF is **Create Submission** (`docspring-create-submission`) and Generate PDFs in a Batch is
+  **Create Submission Batch** (`docspring-create-submission-batch`), since a submission can make Word documents too.
+  Find Template is **Find Templates** and Find Submission is **Find Submissions** (getting one
   submission by ID is now **Get Submission**). Data requests are **signature requests** everywhere, and combined
   submissions are **combined PDFs**.
 - **Output follows API v2:** a PDF's links are in `files.pdf` (`download_url`, `permanent_url`), signers are in
@@ -38,10 +40,13 @@ published; the list below is what changed from it.
   in square brackets is sent as typed. Check Data sends them the same way.
 - **Check Data** checks signature requests with the same email settings, and defaults each one's `auth_type` to
   `email_link`, as Create Signature Request does.
-- **Generate PDF** adds output formats (PNG page images, and a Word template's Word document and OpenDocument file),
-  field overrides, editable PDFs and a switch to return without waiting for the PDF. Generate PDFs in a Batch and
+- **Data (JSON)** on Create Submission, Check Data and Create Signature Request takes the data as one JSON object, for
+  lists, nested objects, numbers and booleans: Pipedream's Data input sends every value typed into it as text. It's
+  merged with Data, and a key in both takes Data (JSON)'s value.
+- **Create Submission** adds output formats (PNG page images, and a Word template's Word document and OpenDocument file),
+  field overrides, editable PDFs and a switch to return without waiting for the PDF. Create Submission Batch and
   Generate Submission Files make the same formats.
-- **New actions:** Generate PDFs in a Batch, Get Submission Batch, Check Data, Get Submission, Generate Submission
+- **New actions:** Create Submission Batch, Get Submission Batch, Check Data, Get Submission, Generate Submission
   Files, Expire Submission, Get Combined PDF, Get Signature Request, Get Template, Create Template, Replace Template PDF,
   Copy Template, Move Template, Publish Template Version, List Template Fields, Add Template Fields, Update Template
   Fields, Remove Template Fields, Get Template Page Images, List Folders and Create Folder.

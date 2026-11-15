@@ -15,8 +15,8 @@ const action = (name) => loadComponent(`actions/${name}/${name}.mjs`);
 
 beforeEach(reset);
 
-describe("Generate PDF", async () => {
-  const generatePdf = await action("generate-pdf");
+describe("Create Submission", async () => {
+  const generatePdf = await action("create-submission");
 
   it("puts version and wait in the query and leaves out blank inputs and test: false", async () => {
     respondInOrder({
@@ -49,7 +49,7 @@ describe("Generate PDF", async () => {
       },
       headers: requests[0].headers,
     });
-    assert.equal(summary, "Generated PDF for submission sub_1 (processed)");
+    assert.equal(summary, "Created submission sub_1 (processed)");
   });
 
   it("sends every filled-in input, with real booleans and integers", async () => {
@@ -113,6 +113,81 @@ describe("Generate PDF", async () => {
     });
   });
 
+  it("merges Data (JSON) into Data, so a field can take a list of objects, and a field in both takes Data (JSON)'s value", async () => {
+    respondInOrder({
+      id: "sub_1",
+      state: "processed",
+    });
+    await runAction(generatePdf, {
+      templateId: "tpl_1",
+      data: {
+        customer: "Jane",
+        total: "10",
+      },
+      dataJson: "{\"line_items\": [{\"description\": \"Widget\", \"quantity\": 2}], \"total\": 10, \"paid\": true}",
+    });
+    assert.deepEqual(requests[0].data, {
+      data: {
+        customer: "Jane",
+        total: 10,
+        paid: true,
+        line_items: [
+          {
+            description: "Widget",
+            quantity: 2,
+          },
+        ],
+      },
+    });
+  });
+
+  it("takes Data (JSON) without Data, as an object from an earlier step too", async () => {
+    respondInOrder({
+      id: "sub_1",
+      state: "processed",
+    }, {
+      id: "sub_2",
+      state: "processed",
+    });
+    await runAction(generatePdf, {
+      templateId: "tpl_1",
+      dataJson: "{\"rows\": [{\"a\": \"1\"}]}",
+    });
+    await runAction(generatePdf, {
+      templateId: "tpl_1",
+      dataJson: {
+        rows: [
+          {
+            a: "1",
+          },
+        ],
+      },
+    });
+    for (const request of requests) {
+      assert.deepEqual(request.data, {
+        data: {
+          rows: [
+            {
+              a: "1",
+            },
+          ],
+        },
+      });
+    }
+  });
+
+  it("rejects Data (JSON) that isn't a JSON object, naming the prop", async () => {
+    await assert.rejects(runAction(generatePdf, {
+      templateId: "tpl_1",
+      dataJson: "[{\"a\": \"1\"}]",
+    }), /Data \(JSON\) must be a JSON object/);
+    await assert.rejects(runAction(generatePdf, {
+      templateId: "tpl_1",
+      dataJson: "{\"rows\": [",
+    }), /Data \(JSON\)/);
+    assert.equal(requests.length, 0);
+  });
+
   it("fails on a 201 with a failed state", async () => {
     respondInOrder({
       id: "sub_1",
@@ -135,8 +210,8 @@ describe("Generate PDF", async () => {
   });
 });
 
-describe("Generate PDFs in a Batch", async () => {
-  const batchAction = await action("generate-pdfs-in-a-batch");
+describe("Create Submission Batch", async () => {
+  const batchAction = await action("create-submission-batch");
 
   it("sends template_version in the body and wait in the query", async () => {
     respondInOrder({
@@ -308,6 +383,36 @@ describe("Combine PDFs", async () => {
 
 describe("Create Signature Request", async () => {
   const createSignatureRequest = await action("create-signature-request");
+
+  it("sends Data (JSON) merged into Data", async () => {
+    respondInOrder({
+      id: "sub_1",
+      state: "waiting_for_signature_requests",
+      signature_requests: [],
+    });
+    await runAction(createSignatureRequest, {
+      templateId: "tpl_1",
+      numberOfSigners: 1,
+      sendEmail: "docspring",
+      data: {
+        landlord: "Jane",
+      },
+      dataJson: "{\"rooms\": [{\"name\": \"Kitchen\"}]}",
+      signer1Name: "Tenant",
+      signer1Email: "tenant@example.com",
+      signer1Fields: [
+        "tenant_signature",
+      ],
+    });
+    assert.deepEqual(requests[0].data.data, {
+      landlord: "Jane",
+      rooms: [
+        {
+          name: "Kitchen",
+        },
+      ],
+    });
+  });
   const created = {
     id: "sub_1",
     state: "waiting_for_signature_requests",
@@ -718,6 +823,29 @@ describe("Create Signature Request", async () => {
 
 describe("Check Data", async () => {
   const checkData = await action("check-data");
+
+  it("checks Data (JSON) merged into Data, as Create Submission sends it", async () => {
+    respondInOrder({
+      valid: true,
+    });
+    await runAction(checkData, {
+      templateId: "tpl_1",
+      data: {
+        customer: "Jane",
+      },
+      dataJson: "{\"line_items\": [{\"description\": \"Widget\"}]}",
+    });
+    assert.deepEqual(requests[0].data, {
+      data: {
+        customer: "Jane",
+        line_items: [
+          {
+            description: "Widget",
+          },
+        ],
+      },
+    });
+  });
 
   it("checks the email settings Create Signature Request sends, only with signers, leaving out blank signer values, trimming emails and defaulting auth_type", async () => {
     respondInOrder({
