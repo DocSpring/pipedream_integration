@@ -374,7 +374,7 @@ describe("errors", () => {
       templateId: "tpl_1",
       sync: true,
     }), {
-      message: "The PDF wasn't ready in time. Get it later with Get Submission (sub_2), or use the submission.processed trigger.\nRequest ID: req_2",
+      message: "The submission wasn't ready in time. Get it later with Get Submission (sub_2), or use the submission.processed trigger.\nRequest ID: req_2",
     });
   });
 
@@ -389,7 +389,7 @@ describe("errors", () => {
       },
     }));
     await assert.rejects(makeApp().createCombinedPdf({}), {
-      message: "The PDF wasn't ready in time. Get it later with Get Combined PDF (com_1), or use the combined_pdf.processed trigger.",
+      message: "The combined PDF wasn't ready in time. Get it later with Get Combined PDF (com_1), or use the combined_pdf.processed trigger.",
     });
   });
 

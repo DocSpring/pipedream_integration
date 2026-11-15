@@ -37,8 +37,8 @@ an account can connect (PipedreamHQ/pipedream#21948). The registration's connect
 | Self-hosted | the custom host        | the custom host            |
 
 A custom host without a scheme gets `https://`. The operations that make a file use the sync host with
-`?wait=true`, or `wait=false` when **Wait for the PDF** (**Wait for the Files** in Generate Submission Files) is off: Generate PDF, Generate PDFs in a Batch, Combine PDFs,
-Generate Submission Files, Create Template and Replace Template PDF. Everything else, including Create Signature
+`?wait=true`, or `wait=false` when the action's **Wait for ...** input is off: Create Submission, Create Submission
+Batch, Combine PDFs, Generate Submission Files, Create Template and Replace Template PDF. Everything else, including Create Signature
 Request, uses the standard host.
 
 Every request sends `User-Agent: docspring-pipedream/<version>`, from `PACKAGE_VERSION` in `common/constants.mjs`. Keep
@@ -60,7 +60,10 @@ names the release, and DocSpring counts users by it in `api_logs.user_agent`.
   that are JSON objects or arrays (`utils.parseObjectArray`).
 - `data` is passed through as the user mapped it: v2 checks it against the template (dates are `YYYY-MM-DD`). It's a
   key-value object rather than fields built from the template's schema, which works the same for agents and for data
-  mapped whole from an earlier step.
+  mapped whole from an earlier step. Pipedream's object prop sends every value typed into it as text, so Create
+  Submission, Check Data and Create Signature Request also take **Data (JSON)** (`dataJson`), one JSON object for
+  lists, nested objects, numbers and booleans. `utils.submissionData` merges the two; a key in both takes Data
+  (JSON)'s value.
 - Lists use cursors: Find Templates, Find Submissions and List Folders follow `next_cursor` (up to 100 a request) until
   **Max Results** (default 50), and return an array. The template and folder pickers page with `prevContext` and stop
   after 1,000 options. The folder picker can offer `root` (sent as `null`) for Copy Template and Move Template.
@@ -99,8 +102,8 @@ names the release, and DocSpring counts users by it in `api_logs.user_agent`.
 
 | Action | v2 operation | Notes |
 | --- | --- | --- |
-| Generate PDF | `POST /templates/{id}/submissions` (sync) | version, data, test, metadata, output formats (`pdf`, `png`, and a Word template's `docx` and `odt`), password, expires in, field overrides, editable, wait |
-| Generate PDFs in a Batch | `POST /submissions/batches` (sync) | submissions as JSON; batch-level template, `template_version`, test, metadata, output formats |
+| Create Submission | `POST /templates/{id}/submissions` (sync) | version, data, Data (JSON), test, metadata, output formats (`pdf`, `png`, and a Word template's `docx` and `odt`), password, expires in, field overrides, editable, wait |
+| Create Submission Batch | `POST /submissions/batches` (sync) | submissions as JSON; batch-level template, `template_version`, test, metadata, output formats |
 | Get Submission Batch | `GET /submissions/batches/{id}` | include data |
 | Check Data | `POST /templates/{id}/submissions/validate` | data, test, optional signature requests as JSON with Emails to Signers, Signing Order and DocSpring's email options (sent only with signature requests); returns `valid` without throwing |
 | Get Submission | `GET /submissions/{id}` | |
@@ -181,6 +184,17 @@ second one.
   signatures (Zendesk, Help Scout, Clio, Vercel) all read `bodyRaw`. The `http` prop has `customResponse: true`, so
   `run()` responds itself: 401 for a missing or wrong signature (nothing is emitted), 200 otherwise. A source
   activated before the secret was stored has none, so its deliveries aren't checked.
+
+## Naming and inputs
+
+The rules every DocSpring integration follows (Shortcut 7286 and its follow-ups):
+
+- Name actions for what the API creates: a submission, not a PDF. A Word template's submission makes a Word document
+  or an OpenDocument file, and later files come from Generate Submission Files. Keys follow the names
+  (`docspring-create-submission`, `docspring-create-submission-batch`); once published, a key never changes.
+- An action that sends submission data accepts everything the API accepts: lists, nested objects, numbers and booleans
+  as well as text. Where the platform's own input can only send text, add a Data (JSON) input beside it.
+- Signature requests (never "data requests"), combined PDFs (never "combined submissions") and IDs (never "UIDs").
 
 ## Pipedream conventions these follow
 

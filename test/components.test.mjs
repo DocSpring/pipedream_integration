@@ -22,8 +22,8 @@ const actionDisplayNames = new Set(actions.map(([
 
 // The operations in the sc-5981 spec, except Make an API Call (Pipedream has its own).
 const SPEC_OPERATIONS = [
-  "Generate PDF",
-  "Generate PDFs in a Batch",
+  "Create Submission",
+  "Create Submission Batch",
   "Get Submission Batch",
   "Check Data",
   "Get Submission",
@@ -85,7 +85,7 @@ describe("components", () => {
       for (const [
         , name,
       ] of text.matchAll(/\*\*([^*]+)\*\*/g)) {
-        if (/^(New Event \(Instant\)|Data|Prefilled Values Editable|Reimport Fields|Detect Fields|Template Version|Output Formats|Authentication Provider|Signer \d+ Fields|Signer \$\{i\} Fields|Emails to Signers|Signing Order|Signing Step|Most Reminders per Person|Signature Requests)$/.test(name)) {
+        if (/^(New Event \(Instant\)|Data|Data \(JSON\)|Prefilled Values Editable|Reimport Fields|Detect Fields|Template Version|Output Formats|Authentication Provider|Signer \d+ Fields|Signer \$\{i\} Fields|Emails to Signers|Signing Order|Signing Step|Most Reminders per Person|Signature Requests)$/.test(name)) {
           continue;
         }
         assert.ok(actionDisplayNames.has(name), `${folder} mentions **${name}**, which isn't an action`);
